@@ -59,6 +59,27 @@
  * reduce the conversion accuracy by chosing smaller mult and shift
  * factors.
  */
+/* 
+ * Q: 怎么保证 cycle * mult 的值在N个字节的数值中溢出？
+ * A: 如果cycle占用m个字节, 占用 N-m 个字节，就会抱着给你个字节 cycle × mult 的值存储在N个字节不溢出。
+ * 可以用下面图表示:
+ * | mult | 最大的时间范围cycle值|
+ * | <---------64bit------------>|
+ *
+ * 
+ * ns数=cycle × mult>> shift
+ * 所以: 
+ *       mult =(ns<<shift) / cycle
+ *       mult=(NSEC_PER_SEC<<shift) / HW counter input frequency
+ *       在这个函数中:mult = to << shift / from
+ * 
+ * 如何获取最佳的mult和shift组合？
+ * 当一个公式中有两个可变量的时候，最好的办法就是固定其中一个，求出另外一个，然后带入约束条件进行检验了。
+ * mult这个因子一定越大越好，mult越大也意味着shift也越大。当然shift总有一个启始值，我们设定为32bit，因此
+ * sft从32开始搜索，看看是否满足最大时间的要求:当然mult的bit不能超过sftacc,就能保证 cycle × mult 不会N字节溢出。
+ *
+ *  整体实现逻辑在下面函数的A区域，则 tmp = mult 
+ */
 void
 clocks_calc_mult_shift(u32 *mult, u32 *shift, u32 from, u32 to, u32 maxsec)
 {
@@ -69,10 +90,10 @@ clocks_calc_mult_shift(u32 *mult, u32 *shift, u32 from, u32 to, u32 maxsec)
 	 * Calculate the shift factor which is limiting the conversion
 	 * range:
 	 */
-	tmp = ((u64)maxsec * from) >> 32;
+	tmp = ((u64)maxsec * from) >> 32;   // maxsec * from最大cycle数目
 	while (tmp) {
 		tmp >>=1;
-		sftacc--;
+		sftacc--;  //sftacc保存了mult的bit的数目，比如tmp= 0xffffff,则 sftacc=8
 	}
 
 	/*
@@ -80,8 +101,8 @@ clocks_calc_mult_shift(u32 *mult, u32 *shift, u32 from, u32 to, u32 maxsec)
 	 * accuracy and fits the maxsec conversion range:
 	 */
 	for (sft = 32; sft > 0; sft--) {
-		tmp = (u64) to << sft;
-		tmp += from / 2;
+		tmp = (u64) to << sft;     //to就是NSEC_PER_SEC 转换成ns系数
+		tmp += from / 2;           //tmp加上from/2方便除数的处理---------a
 		do_div(tmp, from);
 		if ((tmp >> sftacc) == 0)
 			break;
