@@ -584,11 +584,17 @@ static inline void clocksource_update_max_deferment(struct clocksource *cs)
 
 #ifndef CONFIG_ARCH_USES_GETTIMEOFFSET
 
+/*
+ *  a)区域: 系统中的timer硬件有可能包括多个，这些HW timer的驱动都会向系统注册clock source，这导致在初始化的过程中，current clock source会变来变去。与其这样，不如等到尘埃落定（系统启动完毕，各个clock source chip完成初始
+			化）的时候再启动clock source的甄选
+ *  b)区域：实际的选择当然是rating最高的那个clock source（也就是clock sourcelist中最前面的节点）。clocksource_enqueue函数，完成时钟源按照rate从大大小的排序。
+*/
+
 static struct clocksource *clocksource_find_best(bool oneshot, bool skipcur)
 {
 	struct clocksource *cs;
 
-	if (!finished_booting || list_empty(&clocksource_list))
+	if (!finished_booting || list_empty(&clocksource_list))  //-----a
 		return NULL;
 
 	/*
@@ -596,7 +602,7 @@ static struct clocksource *clocksource_find_best(bool oneshot, bool skipcur)
 	 * mode is active, we pick the highres valid clocksource with
 	 * the best rating.
 	 */
-	list_for_each_entry(cs, &clocksource_list, list) {
+	list_for_each_entry(cs, &clocksource_list, list) {      //-----b
 		if (skipcur && cs == curr_clocksource)
 			continue;
 		if (oneshot && !(cs->flags & CLOCK_SOURCE_VALID_FOR_HRES))
@@ -605,19 +611,32 @@ static struct clocksource *clocksource_find_best(bool oneshot, bool skipcur)
 	}
 	return NULL;
 }
-
+/*
+ *  1)区域：找到最好的那个clock source.
+ *  2)区域：这段代码是处理用户空间指定current clocksource. 
+ *          用户空间程序会将其心仪的clock source的名字放入到override_name中，在clocksourceselect的时候需要scan clock source列表，找到用户指定的那个clock source，并将其设定为best。
+ *  3)区域: 调用timekeeping_notify函数通知timekeeping模块。 
+ *
+ * 1、系统在什么时候会启动选择clock source的过程？
+ *    主要context如下：
+ *  （1）注册一个新的clock source。有新货到来，总是要再挑挑拣拣吧，说不定会有新发现。
+ *  （2）注销clock source。如果注销掉的就是current clock source，总得在剩下的矮子中选一个将军吧
+ *  （3）在clock source watchdog中启动。具体参考下一章描述
+ *  （4）底层的clock source chip driver调用clocksource_change_rating修改rating。底层的clock source chip driver有可能自废武功，也有可能满血复活，这时候当然要重新选举，否则有可能废材当盟主。
+*   （5）来自用户空间的请求。用户空间的程序可以通过current_clocksource的属性文件强行指定current clocksource。这时候，用户空间程序会给出clock source的名字，内核将用户空间向设定的名字写入override_name buffer，然后调用clocksource_select函数。
+*/
 static void __clocksource_select(bool skipcur)
 {
 	bool oneshot = tick_oneshot_mode_active();
 	struct clocksource *best, *cs;
 
 	/* Find the best suitable clocksource */
-	best = clocksource_find_best(oneshot, skipcur);
+	best = clocksource_find_best(oneshot, skipcur); //----------(1)
 	if (!best)
 		return;
 
 	/* Check for the override clocksource. */
-	list_for_each_entry(cs, &clocksource_list, list) {
+	list_for_each_entry(cs, &clocksource_list, list) { //-----(2)
 		if (skipcur && cs == curr_clocksource)
 			continue;
 		if (strcmp(cs->name, override_name) != 0)
@@ -647,7 +666,7 @@ static void __clocksource_select(bool skipcur)
 		break;
 	}
 
-	if (curr_clocksource != best && !timekeeping_notify(best)) {
+	if (curr_clocksource != best && !timekeeping_notify(best)) {   //-----(3)
 		pr_info("Switched to clocksource %s\n", best->name);
 		curr_clocksource = best;
 	}
@@ -700,7 +719,7 @@ static int __init clocksource_done_booting(void)
 fs_initcall(clocksource_done_booting);
 
 /*
- * Enqueue the clocksource sorted by rating
+ * Enqueue the clocksource sorted by rating,按照从大小的顺序排列.
  */
 static void clocksource_enqueue(struct clocksource *cs)
 {
