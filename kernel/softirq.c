@@ -348,7 +348,7 @@ void irq_enter(void)
 
 	__irq_enter();
 }
-
+/*这个函数触发函数softirq*/
 static inline void invoke_softirq(void)
 {
 	if (ksoftirqd_running())
@@ -390,6 +390,7 @@ static inline void tick_irq_exit(void)
 
 /*
  * Exit an interrupt context. Process softirqs if needed and possible:
+ * 这个函数处理softirq 
  */
 void irq_exit(void)
 {
