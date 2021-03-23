@@ -43,6 +43,7 @@
 #include <asm/virt.h>
 
 #include "efi-header.S"
+#include "debug-pl011.inc"
 
 #define __PHYS_OFFSET	(KERNEL_START - TEXT_OFFSET)
 
@@ -53,6 +54,14 @@
 #elif TEXT_OFFSET > 0x1fffff
 #error TEXT_OFFSET must be less than 2MB
 #endif
+
+#define PRINT(_s)       \
+        adr   x15, 98f ; \
+        bl    puts    ; \
+        b     99f     ; \
+98:     .asciz _s     ; \
+        .align 2      ; \
+99:
 
 /*
  * Kernel startup entry point.
@@ -114,6 +123,15 @@ pe_header:
 	 *  x19/x20    __primary_switch()         callee preserved temp registers
 	 */
 ENTRY(stext)
+    # Add uart debug for assembler in head.S
+    /* We will use unused register in head.S: x14, x15, x17, x22 and x25.
+	 * x14, uart base address.
+	 * x15, the print contents.
+	 * x17, x22,x25 tmp register.
+	 */
+	mov   x14, #0x9000000 /* x23 := UART base address */
+	bl    init_uart
+    # Add uart debug for assembler in head.S
 	bl	preserve_boot_args
 	bl	el2_setup			// Drop to EL1, w0=cpu_boot_mode
 	adrp	x23, __PHYS_OFFSET
@@ -215,7 +233,6 @@ ENDPROC(preserve_boot_args)
  */
 __create_page_tables:
 	mov	x28, lr
-
 	/*
 	 * Invalidate the idmap and swapper page tables to avoid potential
 	 * dirty cache lines being evicted.
@@ -752,3 +769,47 @@ __primary_switch:
 	adrp	x0, __PHYS_OFFSET
 	br	x8
 ENDPROC(__primary_switch)
+
+# Add for uart debug in the head.S
+init_uart:
+	early_uart_init x14, 17
+	adr x15,1f
+	b     puts
+1:      .asciz "- UART enabled -\r\n"
+	.align 4
+
+/* Print early debug messages.
+ * x15: Nul-terminated string to print.
+ * x14: Early UART base address
+ * Clobbers x15,x17 */
+puts:
+	early_uart_ready x14, 17
+	ldrb  w17, [x15], #1
+	cbz   w17, 1f
+	early_uart_transmit x14, w17
+	b     puts
+1:
+	ret
+ENDPROC(init_uart)
+
+/* Print a 32-bit number in hex.  Specific to the PL011 UART.
+ * x15: Number to print.
+ * x14: Early UART base address
+ * Clobbers x15,x17,x22,x25 */
+putn:
+        adr   x17, hex
+        mov   x25, #8
+1:
+        early_uart_ready x14, 2
+        and   x22, x15, #0xf0000000    /* Mask off the top nybble */
+        lsr   x22, x22, #28
+        ldrb  w22, [x17, x22]           /* Convert to a char */
+        early_uart_transmit x14, w22
+        lsl   x15, x15, #4             /* Roll it through one nybble at a time */
+        subs  x25, x25, #1
+        b.ne  1b
+        ret
+hex:    .ascii "0123456789abcdef"
+        .align 2
+ENDPROC(putn)
+# Add for uart debug in the head.S
