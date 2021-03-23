@@ -123,7 +123,8 @@ static int c_show(struct seq_file *m, void *v)
 		 * online processors, looking for lines beginning with
 		 * "processor".  Give glibc what it expects.
 		 */
-		seq_printf(m, "processor\t: %d\n", i);
+		seq_printf(m, "tom processor\t: %d\n", i);
+		seq_printf(m, "tom mpidr:%llx\n", cpuinfo->reg_mpidr);
 		if (compat)
 			seq_printf(m, "model name\t: ARMv8 Processor rev %d (%s)\n",
 				   MIDR_REVISION(midr), COMPAT_ELF_PLATFORM);
@@ -315,6 +316,7 @@ static void __cpuinfo_store_cpu(struct cpuinfo_arm64 *info)
 	info->reg_ctr = read_cpuid_cachetype();
 	info->reg_dczid = read_cpuid(DCZID_EL0);
 	info->reg_midr = read_cpuid_id();
+	info->reg_mpidr = read_cpuid_mpidr();
 	info->reg_revidr = read_cpuid(REVIDR_EL1);
 
 	info->reg_id_aa64dfr0 = read_cpuid(ID_AA64DFR0_EL1);
