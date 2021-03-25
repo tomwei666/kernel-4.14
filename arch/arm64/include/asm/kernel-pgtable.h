@@ -87,6 +87,8 @@
 #define SWAPPER_MM_MMUFLAGS	(PTE_ATTRINDX(MT_NORMAL) | SWAPPER_PTE_FLAGS)
 #endif
 
+#define SWAPPER_MM_MMUFLAGS1	(PTE_ATTRINDX(MT_NORMAL) | SWAPPER_PTE_FLAGS)
+
 /*
  * To make optimal use of block mappings when laying out the linear
  * mapping, round down the base of physical memory to a size that can

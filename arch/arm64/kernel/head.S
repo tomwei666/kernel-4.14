@@ -45,6 +45,12 @@
 #include "efi-header.S"
 #include "debug-pl011.inc"
 
+#define PL011_VIRT_BASE 0xFFFF0000c0000000
+#define PL011_PHY_BASE 0x9000000
+
+#define PT_PT     0xf7f
+#define PT_DEV_L3 0xe73
+
 #define __PHYS_OFFSET	(KERNEL_START - TEXT_OFFSET)
 
 #if (TEXT_OFFSET & 0xfff) != 0
@@ -130,6 +136,7 @@ ENTRY(stext)
 	 * x17, x22,x25 tmp register.
 	 */
 	mov   x14, #0x9000000 /* x23 := UART base address */
+	ldr   x14,=PL011_PHY_BASE
 	bl    init_uart
     # Add uart debug for assembler in head.S
 	bl	preserve_boot_args
@@ -164,6 +171,32 @@ preserve_boot_args:
 	mov	x1, #0x20			// 4 x 8 bytes
 	b	__inval_dcache_area		// tail call
 ENDPROC(preserve_boot_args)
+
+.macro	create_uart_page, tbl, virt, tmp1, tmp2,tmp3,flags
+	sub \tmp1,\tbl,#PAGE_SIZE   /*upper dir base*/
+	lsr	\tmp2, \virt, #PUD_SHIFT
+	and	\tmp2, \tmp2, #PTRS_PER_PGD - 1	// table index
+	add \tmp3,\tbl,#PAGE_SIZE  /*upper entry content*/
+	orr \tmp3,\tmp3,#PMD_TYPE_TABLE
+	str	\tmp3, [\tmp1, \tmp2, lsl #3]  /*set pud node*/
+
+	add \tmp1,\tbl,#PAGE_SIZE
+	lsr	\tmp2, \virt, #PMD_SHIFT
+	and	\tmp2, \tmp2, #PTRS_PER_PMD - 1	// table index
+	add \tbl,\tbl,#PAGE_SIZE
+	add \tmp3,\tbl,#PAGE_SIZE  /*upper entry content*/
+	orr \tmp3,\tmp3,#PMD_TYPE_TABLE
+	str	\tmp3, [\tmp1, \tmp2, lsl #3] /*set pmd node*/
+
+	add \tmp1,\tbl,#PAGE_SIZE
+	lsr	\tmp2, \virt, #PAGE_SHIFT
+	and	\tmp2, \tmp2, #PTRS_PER_PTE - 1	// table index
+	mov \tmp3,#0x9000000
+/*	mov \tmp3,#PL011_PHY_BASE*/
+	orr \tmp3,\tmp3,\flags
+	str	\tmp3, [\tmp1, \tmp2, lsl #3] /*set pte node*/
+	.endm
+
 
 /*
  * Macro to create a table entry to the next page.
@@ -318,6 +351,9 @@ __create_page_tables:
 	add	x6, x6, x5			// runtime __va(_end)
 	create_block_map x0, x7, x3, x5, x6
 
+	mov	x7, SWAPPER_MM_MMUFLAGS1
+	ldr x22,=PL011_VIRT_BASE
+    create_uart_page x0,x22, x3, x5, x6,x7
 	/*
 	 * Since the page tables have been populated with non-cacheable
 	 * accesses (MMU disabled), invalidate the idmap and swapper page
@@ -765,6 +801,8 @@ __primary_switch:
 	bl	__relocate_kernel
 #endif
 #endif
+	ldr   x14,=PL011_VIRT_BASE
+	PRINT("\n use uart virt address\n")
 	ldr	x8, =__primary_switched
 	adrp	x0, __PHYS_OFFSET
 	br	x8
