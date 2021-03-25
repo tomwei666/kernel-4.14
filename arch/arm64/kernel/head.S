@@ -191,8 +191,7 @@ ENDPROC(preserve_boot_args)
 	add \tmp1,\tbl,#PAGE_SIZE
 	lsr	\tmp2, \virt, #PAGE_SHIFT
 	and	\tmp2, \tmp2, #PTRS_PER_PTE - 1	// table index
-	mov \tmp3,#0x9000000
-/*	mov \tmp3,#PL011_PHY_BASE*/
+    mov \tmp3,#PL011_PHY_BASE
 	orr \tmp3,\tmp3,\flags
 	str	\tmp3, [\tmp1, \tmp2, lsl #3] /*set pte node*/
 	.endm
