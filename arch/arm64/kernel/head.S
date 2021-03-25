@@ -812,4 +812,26 @@ putn:
 hex:    .ascii "0123456789abcdef"
         .align 2
 ENDPROC(putn)
+
+/* Print a 64-bit number in hex.  Specific to the PL011 UART.
+ * x15: Number to print.
+ * x14: Early UART base address
+ * Clobbers x15,x17,x22,x25 */
+putn_64:
+        adr   x17, hex_64
+        mov   x25, #16
+1:
+        early_uart_ready x14, 26
+        and   x22, x15, #0xf000000000000000    /* Mask off the top nybble */
+        lsr   x22, x22, #60
+		ldrb  w22, [x17, x22]           /* Convert to a char */
+		early_uart_transmit x14, w22
+        lsl   x15, x15, #4             /* Roll it through one nybble at a time */
+        subs  x25, x25, #1
+        b.ne  1b
+        ret
+hex_64:    .ascii "0123456789abcdef"
+        .align 2
+ENDPROC(putn_64)
+
 # Add for uart debug in the head.S
