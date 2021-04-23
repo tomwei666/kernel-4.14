@@ -754,6 +754,14 @@ void __init early_fixmap_init(void)
 		__pud_populate(pud, __pa_symbol(bm_pmd), PMD_TYPE_TABLE);
 	pmd = fixmap_pmd(addr);
 	__pmd_populate(pmd, __pa_symbol(bm_pte), PMD_TYPE_TABLE);
+	//printk(KERN_ERR "tom ADDR_START=%llx FIX_PUD=%llx FIX_PMD=%llx FIX_FDT=%llx\n",FIXADDR_START,fix_to_virt(FIX_PUD),fix_to_virt(FIX_PMD),fix_to_virt(FIX_FDT));
+	//printk(KERN_ERR "tom ADDR_START pgd_index=%llx pud_index=%llx pmd_index=%llx pte_index=%llx\n",pgd_index(FIXADDR_START),pud_index(FIXADDR_START),pmd_index(FIXADDR_START),pte_index(FIXADDR_START));
+	//printk(KERN_ERR "tom FIX_PUD pgd_index=%llx pud_index=%llx pmd_index=%llx pte_index=%llx\n",pgd_index(fix_to_virt(FIX_PUD)),pud_index(fix_to_virt(FIX_PUD)),pmd_index(fix_to_virt(FIX_PUD)),pte_index(fix_to_virt(FIX_PUD)));
+	//printk(KERN_ERR "tom FIX_PMD pgd_index=%llx pud_index=%llx pmd_index=%llx pte_index=%llx\n",pgd_index(fix_to_virt(FIX_PMD)),pud_index(fix_to_virt(FIX_PMD)),pmd_index(fix_to_virt(FIX_PMD)),pte_index(fix_to_virt(FIX_PMD)));
+	//printk(KERN_ERR "tom FIX_FDT pgd_index=%llx pud_index=%llx pmd_index=%llx pte_index=%llx\n",pgd_index(fix_to_virt(FIX_FDT)),pud_index(fix_to_virt(FIX_FDT)),pmd_index(fix_to_virt(FIX_FDT)),pte_index(fix_to_virt(FIX_FDT)));
+
+
+
 
 	/*
 	 * The boot-ioremap range spans multiple pmds, for which
