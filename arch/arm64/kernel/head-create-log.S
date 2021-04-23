@@ -164,6 +164,10 @@ x0=0x00000000410a7000 x5=0xffff000008080000
 
 create_table_entry \tbl, \virt, PGDIR_SHIFT, PTRS_PER_PGD, \tmp1, \tmp2 
 				   0x410a7000 0xffff000008080000 39
+0xffff 000008080000
+[47:44]=0000 [43:40]=0000 [39:36]=0000 [35:32]=0000 [31:28]=0000 [27:24]=1000
+[23:20]=0000 [19:16]=1000 [15:12]=0000 [11:8]=0000  [7:4]=0000   [3:0]=1000
+[47:39]=0x0  [38:30]=0x0 [29:21]=0x40 [20:12]=0x80
 
     .macro  create_table_entry, tbl, virt, shift, ptrs, tmp1, tmp2              
     lsr \tmp1, \virt, #\shift             // tmp1=0                                   
