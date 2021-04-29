@@ -589,8 +589,11 @@ void __init paging_init(void)
 	phys_addr_t pgd_phys = early_pgtable_alloc();
 	pgd_t *pgd = pgd_set_fixmap(pgd_phys);
 
+
 	map_kernel(pgd);
 	map_mem(pgd);
+	pgd_t *pg1=(pgd_t *)fix_to_virt(FIX_PGD);
+	printk("TTBR1 global pgd virtual address=%llx %llx\n",pg1,*pg1);
 
 	/*
 	 * We want to reuse the original swapper_pg_dir so we don't have to
