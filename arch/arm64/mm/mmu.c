@@ -212,7 +212,6 @@ static void init_pmd(pud_t *pud, unsigned long addr, unsigned long end,
 
 	pmd_clear_fixmap();
 }
-static int debug13=0;
 
 static void alloc_init_cont_pmd(pud_t *pud, unsigned long addr,
 				unsigned long end, phys_addr_t phys,
@@ -233,8 +232,6 @@ static void alloc_init_cont_pmd(pud_t *pud, unsigned long addr,
 	}
 	BUG_ON(pud_bad(*pud));
 
-	if(addr==0xffff000008080000)
-		debug13 = 1;
 	do {
 		pgprot_t __prot = prot;
 
@@ -262,7 +259,6 @@ static inline bool use_1G_block(unsigned long addr, unsigned long next,
 
 	return true;
 }
-static int debug12 = 0;
 
 static void alloc_init_pud(pgd_t *pgd, unsigned long addr, unsigned long end,
 				  phys_addr_t phys, pgprot_t prot,
@@ -272,11 +268,7 @@ static void alloc_init_pud(pgd_t *pgd, unsigned long addr, unsigned long end,
 	pud_t *pud;
 	unsigned long next;
 
-	if(addr==0xffff000008080000)
-		debug12 = 1;
 	if (pgd_none(*pgd)) {
-	    if(debug12==1)
-		printk(KERN_ERR "tom F=%s L=%d\n",__func__,__LINE__);
 		phys_addr_t pud_phys;
 		BUG_ON(!pgtable_alloc);
 		pud_phys = pgtable_alloc();
@@ -285,10 +277,6 @@ static void alloc_init_pud(pgd_t *pgd, unsigned long addr, unsigned long end,
 	BUG_ON(pgd_bad(*pgd));
 
 	pud = pud_set_fixmap_offset(pgd, addr);
-	printk(KERN_ERR "tom F=%s L=%d addr=%lx %llx pud=%llx *pud=%llx\n",__func__,__LINE__,addr,pud_index(addr),pud,*pud);
-	    if(debug12==1)
-		printk(KERN_ERR "tom F=%s L=%d pud=%llx *pud=%llx\n",__func__,__LINE__,pud,*pud);
-
 	do {
 		pud_t old_pud = *pud;
 
@@ -300,8 +288,6 @@ static void alloc_init_pud(pgd_t *pgd, unsigned long addr, unsigned long end,
 		if (use_1G_block(addr, next, phys) &&
 		    (flags & NO_BLOCK_MAPPINGS) == 0) {
 			pud_set_huge(pud, phys, prot);
-		    if(debug12==1)
-			printk(KERN_ERR "tom F=%s L=%d pud=%llx *pud=%llx\n",__func__,__LINE__,pud,*pud);
 
 			/*
 			 * After the PUD entry has been populated once, we
@@ -310,8 +296,6 @@ static void alloc_init_pud(pgd_t *pgd, unsigned long addr, unsigned long end,
 			BUG_ON(!pgattr_change_is_safe(pud_val(old_pud),
 						      pud_val(*pud)));
 		} else {
-		    if(debug12==1)
-			printk(KERN_ERR "tom F=%s L=%d pud=%llx *pud=%llx\n",__func__,__LINE__,pud,*pud);
 			alloc_init_cont_pmd(pud, addr, next, phys, prot,
 					    pgtable_alloc, flags);
 
@@ -320,12 +304,10 @@ static void alloc_init_pud(pgd_t *pgd, unsigned long addr, unsigned long end,
 		}
 		phys += next - addr;
 	} while (pud++, addr = next, addr != end);
-	debug12 +=1;
 
 	pud_clear_fixmap();
 }
 
-static int debug11 = 0;
 static void __create_pgd_mapping(pgd_t *pgdir, phys_addr_t phys,
 				 unsigned long virt, phys_addr_t size,
 				 pgprot_t prot,
@@ -334,9 +316,6 @@ static void __create_pgd_mapping(pgd_t *pgdir, phys_addr_t phys,
 {
 	unsigned long addr, length, end, next;
 	pgd_t *pgd = pgd_offset_raw(pgdir, virt);
-	printk(KERN_ERR "tom F=%s L=%d virt=%llx\n",__func__,__LINE__,virt);
-	if(virt==0xffff000008080000)
-		debug11 = 1;
 
 	/*
 	 * If the virtual and physical address don't have the same offset
@@ -352,13 +331,10 @@ static void __create_pgd_mapping(pgd_t *pgdir, phys_addr_t phys,
 	end = addr + length;
 	do {
 		next = pgd_addr_end(addr, end);
-		if(debug11 == 1)
-		    printk(KERN_ERR "tom F=%s L=%d addr=%llx\n",__func__,__LINE__,addr);
 		alloc_init_pud(pgd, addr, next, phys, prot, pgtable_alloc,
 			       flags);
 		phys += next - addr;
 	} while (pgd++, addr = next, addr != end);
-	debug11 += 1;
 }
 
 static phys_addr_t pgd_pgtable_alloc(void)
@@ -462,7 +438,6 @@ static void __init map_mem(pgd_t *pgd)
 
 	/* map all the memory banks */
 	for_each_memblock(memory, reg) {
-	    	printk(KERN_ERR "tom reg->base=%llx reg->size=%llx\n",reg->base,reg->size);
 		phys_addr_t start = reg->base;
 		phys_addr_t end = start + reg->size;
 
@@ -612,7 +587,6 @@ static void __init map_kernel(pgd_t *pgd)
 void __init paging_init(void)
 {
 	phys_addr_t pgd_phys = early_pgtable_alloc();
-	printk(KERN_ERR "tom F=%s L=%d pgd_phys=%llx\n",__func__,__LINE__,pgd_phys);
 	pgd_t *pgd = pgd_set_fixmap(pgd_phys);
 
 	map_kernel(pgd);
@@ -780,12 +754,11 @@ void __init early_fixmap_init(void)
 		__pud_populate(pud, __pa_symbol(bm_pmd), PMD_TYPE_TABLE);
 	pmd = fixmap_pmd(addr);
 	__pmd_populate(pmd, __pa_symbol(bm_pte), PMD_TYPE_TABLE);
-	printk(KERN_ERR "tom ADDR_START=%llx FIX_PUD=%llx FIX_PMD=%llx FIX_FDT=%llx\n",FIXADDR_START,fix_to_virt(FIX_PUD),fix_to_virt(FIX_PMD),fix_to_virt(FIX_FDT));
-	printk(KERN_ERR "tom ADDR_START pgd_index=%llx pud_index=%llx pmd_index=%llx pte_index=%llx\n",pgd_index(FIXADDR_START),pud_index(FIXADDR_START),pmd_index(FIXADDR_START),pte_index(FIXADDR_START));
-	printk(KERN_ERR "tom FIX_PUD pgd_index=%llx pud_index=%llx pmd_index=%llx pte_index=%llx\n",pgd_index(fix_to_virt(FIX_PUD)),pud_index(fix_to_virt(FIX_PUD)),pmd_index(fix_to_virt(FIX_PUD)),pte_index(fix_to_virt(FIX_PUD)));
-	printk(KERN_ERR "tom FIX_PMD pgd_index=%llx pud_index=%llx pmd_index=%llx pte_index=%llx\n",pgd_index(fix_to_virt(FIX_PMD)),pud_index(fix_to_virt(FIX_PMD)),pmd_index(fix_to_virt(FIX_PMD)),pte_index(fix_to_virt(FIX_PMD)));
-	printk(KERN_ERR "tom FIX_FDT pgd_index=%llx pud_index=%llx pmd_index=%llx pte_index=%llx\n",pgd_index(fix_to_virt(FIX_FDT)),pud_index(fix_to_virt(FIX_FDT)),pmd_index(fix_to_virt(FIX_FDT)),pte_index(fix_to_virt(FIX_FDT)));
-	printk(KERN_ERR "tom FIX_PGD pgd_index=%llx pud_index=%llx pmd_index=%llx pte_index=%llx\n",pgd_index(fix_to_virt(FIX_PGD)),pud_index(fix_to_virt(FIX_PGD)),pmd_index(fix_to_virt(FIX_PGD)),pte_index(fix_to_virt(FIX_PGD)));
+	//printk(KERN_ERR "tom ADDR_START=%llx FIX_PUD=%llx FIX_PMD=%llx FIX_FDT=%llx\n",FIXADDR_START,fix_to_virt(FIX_PUD),fix_to_virt(FIX_PMD),fix_to_virt(FIX_FDT));
+	//printk(KERN_ERR "tom ADDR_START pgd_index=%llx pud_index=%llx pmd_index=%llx pte_index=%llx\n",pgd_index(FIXADDR_START),pud_index(FIXADDR_START),pmd_index(FIXADDR_START),pte_index(FIXADDR_START));
+	//printk(KERN_ERR "tom FIX_PUD pgd_index=%llx pud_index=%llx pmd_index=%llx pte_index=%llx\n",pgd_index(fix_to_virt(FIX_PUD)),pud_index(fix_to_virt(FIX_PUD)),pmd_index(fix_to_virt(FIX_PUD)),pte_index(fix_to_virt(FIX_PUD)));
+	//printk(KERN_ERR "tom FIX_PMD pgd_index=%llx pud_index=%llx pmd_index=%llx pte_index=%llx\n",pgd_index(fix_to_virt(FIX_PMD)),pud_index(fix_to_virt(FIX_PMD)),pmd_index(fix_to_virt(FIX_PMD)),pte_index(fix_to_virt(FIX_PMD)));
+	//printk(KERN_ERR "tom FIX_FDT pgd_index=%llx pud_index=%llx pmd_index=%llx pte_index=%llx\n",pgd_index(fix_to_virt(FIX_FDT)),pud_index(fix_to_virt(FIX_FDT)),pmd_index(fix_to_virt(FIX_FDT)),pte_index(fix_to_virt(FIX_FDT)));
 
 
 
