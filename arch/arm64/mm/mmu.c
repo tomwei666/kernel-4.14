@@ -423,12 +423,15 @@ static void __init map_mem(pgd_t *pgd)
 	if (debug_pagealloc_enabled())
 		flags = NO_BLOCK_MAPPINGS | NO_CONT_MAPPINGS;
 
+	for_each_memblock(memory, reg) 
+		printk(KERN_ERR "tom F=%s L=%d base=%llx size=%llx\n",__func__,__LINE__,reg->base,reg->size);
 	/*
 	 * Take care not to create a writable alias for the
 	 * read-only text and rodata sections of the kernel image.
 	 * So temporarily mark them as NOMAP to skip mappings in
 	 * the following for-loop
 	 */
+	printk(KERN_ERR "tom F=%s L=%d start=%llx size=%llx\n",__func__,__LINE__,kernel_start,kernel_end-kernel_start);
 	memblock_mark_nomap(kernel_start, kernel_end - kernel_start);
 #ifdef CONFIG_KEXEC_CORE
 	if (crashk_res.end)
@@ -440,6 +443,7 @@ static void __init map_mem(pgd_t *pgd)
 	for_each_memblock(memory, reg) {
 		phys_addr_t start = reg->base;
 		phys_addr_t end = start + reg->size;
+		printk(KERN_ERR "tom F=%s L=%d base=%llx size=%llx\n",__func__,__LINE__,reg->base,reg->size);
 
 		if (start >= end)
 			break;
@@ -448,6 +452,9 @@ static void __init map_mem(pgd_t *pgd)
 
 		__map_memblock(pgd, start, end, PAGE_KERNEL, flags);
 	}
+
+	for_each_memblock(memory, reg) 
+		printk(KERN_ERR "tom F=%s L=%d base=%llx size=%llx\n",__func__,__LINE__,reg->base,reg->size);
 
 	/*
 	 * Map the linear alias of the [_text, __init_begin) interval
@@ -461,7 +468,11 @@ static void __init map_mem(pgd_t *pgd)
 	 */
 	__map_memblock(pgd, kernel_start, kernel_end,
 		       PAGE_KERNEL, NO_CONT_MAPPINGS);
+	for_each_memblock(memory, reg) 
+		printk(KERN_ERR "tom F=%s L=%d base=%llx size=%llx\n",__func__,__LINE__,reg->base,reg->size);
 	memblock_clear_nomap(kernel_start, kernel_end - kernel_start);
+	for_each_memblock(memory, reg) 
+		printk(KERN_ERR "tom F=%s L=%d base=%llx size=%llx\n",__func__,__LINE__,reg->base,reg->size);
 
 #ifdef CONFIG_KEXEC_CORE
 	/*
@@ -588,10 +599,19 @@ void __init paging_init(void)
 {
 	phys_addr_t pgd_phys = early_pgtable_alloc();
 	pgd_t *pgd = pgd_set_fixmap(pgd_phys);
+	struct memblock_region *reg;
+	for_each_memblock(memory, reg)
+	    	printk(KERN_ERR "tom F=%s L=%d base=%llx size=%llx\n",__func__,__LINE__,reg->base,reg->size);
 
 
 	map_kernel(pgd);
+
+	for_each_memblock(memory, reg)
+	    	printk(KERN_ERR "tom F=%s L=%d base=%llx size=%llx\n",__func__,__LINE__,reg->base,reg->size);
 	map_mem(pgd);
+
+	for_each_memblock(memory, reg)
+	    	printk(KERN_ERR "tom F=%s L=%d base=%llx size=%llx\n",__func__,__LINE__,reg->base,reg->size);
 	pgd_t *pg1=(pgd_t *)fix_to_virt(FIX_PGD);
 	printk("TTBR1 global pgd virtual address=%llx %llx\n",pg1,*pg1);
 

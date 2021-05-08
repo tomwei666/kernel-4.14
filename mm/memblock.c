@@ -474,15 +474,26 @@ static void __init_memblock memblock_insert_region(struct memblock_type *type,
 						   int nid, unsigned long flags)
 {
 	struct memblock_region *rgn = &type->regions[idx];
+	struct memblock_region *reg;
+	for_each_memblock(memory, reg)
+	    	printk(KERN_ERR "tom F=%s L=%d base=%llx size=%llx\n",__func__,__LINE__,reg->base,reg->size);
+
+	printk(KERN_ERR "tom memblock_isolate_range L=%d base=%llx size=%llx\n",__LINE__,base,size);
 
 	BUG_ON(type->cnt >= type->max);
 	memmove(rgn + 1, rgn, (type->cnt - idx) * sizeof(*rgn));
 	rgn->base = base;
 	rgn->size = size;
 	rgn->flags = flags;
+	for_each_memblock(memory, reg)
+	    	printk(KERN_ERR "tom F=%s L=%d base=%llx size=%llx\n",__func__,__LINE__,reg->base,reg->size);
 	memblock_set_region_node(rgn, nid);
+	for_each_memblock(memory, reg)
+	    	printk(KERN_ERR "tom F=%s L=%d base=%llx size=%llx\n",__func__,__LINE__,reg->base,reg->size);
 	type->cnt++;
 	type->total_size += size;
+	for_each_memblock(memory, reg)
+	    	printk(KERN_ERR "tom F=%s L=%d base=%llx size=%llx\n",__func__,__LINE__,reg->base,reg->size);
 }
 
 /**
@@ -510,9 +521,15 @@ int __init_memblock memblock_add_range(struct memblock_type *type,
 	phys_addr_t end = base + memblock_cap_size(base, &size);
 	int idx, nr_new;
 	struct memblock_region *rgn;
+	struct memblock_region *reg_tmp;
+
+	for_each_memblock(memory, reg_tmp) {
+	    printk(KERN_ERR "tom F=%s L=%d base=%llx size=%llx\n",__func__,__LINE__,reg_tmp->base,reg_tmp->size);
+	}
 
 	if (!size)
 		return 0;
+	printk(KERN_ERR "tom F=%s L=%d base=%llx end=%llx size=%llx\n",__func__,__LINE__,base,end,size);
 
 	/* special case for empty array */
 	if (type->regions[0].size == 0) {
@@ -563,9 +580,11 @@ repeat:
 	/* insert the remaining portion */
 	if (base < end) {
 		nr_new++;
-		if (insert)
+		if (insert) {
 			memblock_insert_region(type, idx, base, end - base,
 					       nid, flags);
+			printk(KERN_ERR "tom F=%s L=%d base=%llx end=%llx size=%llx\n",__func__,__LINE__,base,end,size);
+		}
 	}
 
 	if (!nr_new)
@@ -582,7 +601,12 @@ repeat:
 		insert = true;
 		goto repeat;
 	} else {
+	    	printk(KERN_ERR "tom F=%s L=%d base=%llx end=%llx size=%llx\n",__func__,__LINE__,base,end,size);
 		memblock_merge_regions(type);
+		for_each_memblock(memory, reg_tmp) {
+			printk(KERN_ERR "tom F=%s L=%d base=%llx size=%llx\n",__func__,__LINE__,reg_tmp->base,reg_tmp->size);
+		}
+
 		return 0;
 	}
 }
@@ -590,6 +614,7 @@ repeat:
 int __init_memblock memblock_add_node(phys_addr_t base, phys_addr_t size,
 				       int nid)
 {
+ 	printk(KERN_ERR "tom F=%s L=%d base=%llx size=%llx\n",__func__,__LINE__,base,size);
 	return memblock_add_range(&memblock.memory, base, size, nid, 0);
 }
 
@@ -600,6 +625,7 @@ int __init_memblock memblock_add(phys_addr_t base, phys_addr_t size)
 	memblock_dbg("memblock_add: [%pa-%pa] %pF\n",
 		     &base, &end, (void *)_RET_IP_);
 
+ 	printk(KERN_ERR "tom F=%s L=%d base=%llx size=%llx\n",__func__,__LINE__,base,size);
 	return memblock_add_range(&memblock.memory, base, size, MAX_NUMNODES, 0);
 }
 
@@ -619,11 +645,21 @@ int __init_memblock memblock_add(phys_addr_t base, phys_addr_t size)
  * RETURNS:
  * 0 on success, -errno on failure.
  */
+static int debug22=0;
 static int __init_memblock memblock_isolate_range(struct memblock_type *type,
 					phys_addr_t base, phys_addr_t size,
 					int *start_rgn, int *end_rgn)
 {
 	phys_addr_t end = base + memblock_cap_size(base, &size);
+	struct memblock_region *reg;
+	debug22 = 0;
+	if(base==0x40080000)
+	    debug22 = 1;
+	if(debug22==1) {
+	    for_each_memblock(memory, reg)
+			printk(KERN_ERR "tom F=%s L=%d base=%llx size=%llx\n",__func__,__LINE__,reg->base,reg->size);
+	}
+	
 	int idx;
 	struct memblock_region *rgn;
 
@@ -636,39 +672,79 @@ static int __init_memblock memblock_isolate_range(struct memblock_type *type,
 	while (type->cnt + 2 > type->max)
 		if (memblock_double_array(type, base, size) < 0)
 			return -ENOMEM;
+	if(debug22==1) {
+	    for_each_memblock(memory, reg)
+			printk(KERN_ERR "tom F=%s L=%d base=%llx size=%llx\n",__func__,__LINE__,reg->base,reg->size);
+	}
 
 	for_each_memblock_type(type, rgn) {
 		phys_addr_t rbase = rgn->base;
 		phys_addr_t rend = rbase + rgn->size;
+		if(debug22==1) {
+			printk(KERN_ERR "tom F=%s L=%d base=%llx size=%llx cout=%llx\n",__func__,__LINE__,rgn->base,rgn->size,type->cnt);
+			printk(KERN_ERR "tom F=%s L=%d base=%llx end=%llx rbase=%llx rend=%llx\n",__func__,__LINE__,base,end,rbase,rend);
+		}
 
 		if (rbase >= end)
 			break;
 		if (rend <= base)
 			continue;
 
+		if(debug22==1)
+			printk(KERN_ERR "tom F=%s L=%d rbase=%llx base=%llx\n",__func__,__LINE__,rbase,base);
+
 		if (rbase < base) {
 			/*
 			 * @rgn intersects from below.  Split and continue
 			 * to process the next region - the new top half.
 			 */
+
+		if(debug22==1)
+			printk(KERN_ERR "tom F=%s L=%d rbase=%llx base=%llx\n",__func__,__LINE__,rbase,base);
+		if(debug22==1) {
+		    for_each_memblock(memory, reg)
+			printk(KERN_ERR "tom F=%s L=%d base=%llx size=%llx\n",__func__,__LINE__,reg->base,reg->size);
+		}
+
 			rgn->base = base;
 			rgn->size -= base - rbase;
 			type->total_size -= base - rbase;
+
+			if(debug22==1) {
+			 printk(KERN_ERR "tom ========begin F=%s L=%d=========\n",__func__,__LINE__);
+			 printk(KERN_ERR "tom F=%s L=%d idx=%llx rbase=%llx (base-rbase)=%llx\n",__func__,__LINE__,idx,rbase,base-rbase);
+			 printk(KERN_ERR "tom F=%s L=%d rgn->base=%llx rgn->size=%llx\n",__func__,__LINE__,rgn->base,rgn->size);
+			}
 			memblock_insert_region(type, idx, rbase, base - rbase,
 					       memblock_get_region_node(rgn),
 					       rgn->flags);
+			if(debug22==1) {
+			    for_each_memblock(memory, reg)
+				printk(KERN_ERR "tom F=%s L=%d base=%llx size=%llx\n",__func__,__LINE__,reg->base,reg->size);
+			}
+			if(debug22 == 1)
+			    printk(KERN_ERR "tom ==========end F=%s L=%d========\n",__func__,__LINE__);
 		} else if (rend > end) {
 			/*
 			 * @rgn intersects from above.  Split and redo the
 			 * current region - the new bottom half.
 			 */
+		if(debug22==1)
+			printk(KERN_ERR "tom F=%s L=%d rbase=%llx base=%llx\n",__func__,__LINE__,rbase,base);
 			rgn->base = end;
 			rgn->size -= end - rbase;
 			type->total_size -= end - rbase;
 			memblock_insert_region(type, idx--, rbase, end - rbase,
 					       memblock_get_region_node(rgn),
 					       rgn->flags);
+
+			if(debug22==1) {
+			    for_each_memblock(memory, reg)
+				printk(KERN_ERR "tom F=%s L=%d base=%llx size=%llx\n",__func__,__LINE__,reg->base,reg->size);
+			}
 		} else {
+		    if(debug22==1)
+			printk(KERN_ERR "tom F=%s L=%d rbase=%llx base=%llx\n",__func__,__LINE__,rbase,base);
 			/* @rgn is fully contained, record it */
 			if (!*end_rgn)
 				*start_rgn = idx;
@@ -718,6 +794,7 @@ int __init_memblock memblock_reserve(phys_addr_t base, phys_addr_t size)
 	memblock_dbg("memblock_reserve: [%pa-%pa] %pF\n",
 		     &base, &end, (void *)_RET_IP_);
 
+ 	printk(KERN_ERR "tom F=%s L=%d base=%llx size=%llx\n",__func__,__LINE__,base,size);
 	return memblock_add_range(&memblock.reserved, base, size, MAX_NUMNODES, 0);
 }
 
@@ -727,13 +804,29 @@ int __init_memblock memblock_reserve(phys_addr_t base, phys_addr_t size)
  *
  * Return 0 on success, -errno on failure.
  */
+
+static int debug11 = 0;
 static int __init_memblock memblock_setclr_flag(phys_addr_t base,
 				phys_addr_t size, int set, int flag)
 {
 	struct memblock_type *type = &memblock.memory;
 	int i, ret, start_rgn, end_rgn;
+	struct memblock_region *reg;
+	debug11 = 0;
+	if(base == 0x40080000)
+	    debug11 = 1;
+	
+	if(debug11==1) {
+	    for_each_memblock(memory, reg)
+			printk(KERN_ERR "tom F=%s L=%d base=%llx size=%llx\n",__func__,__LINE__,reg->base,reg->size);
+	}
 
 	ret = memblock_isolate_range(type, base, size, &start_rgn, &end_rgn);
+	if(debug11==1) {
+	    for_each_memblock(memory, reg)
+			printk(KERN_ERR "tom F=%s L=%d base=%llx size=%llx\n",__func__,__LINE__,reg->base,reg->size);
+	}
+
 	if (ret)
 		return ret;
 
