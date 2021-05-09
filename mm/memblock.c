@@ -474,12 +474,31 @@ static void __init_memblock memblock_insert_region(struct memblock_type *type,
 						   int nid, unsigned long flags)
 {
 	struct memblock_region *rgn = &type->regions[idx];
+	/*First memblock.memory.regions[0]->base=0x40080000 memblock.memory.regions[1]->size=0x1ff80000*/
+	/*First base=0x40000000 size=0x80000*/
+
+	/*Second memblock.memory.regions[0]->base=0x40000000 memblock.memory.regions[1]->size=0x80000*/
+	/*Second memblock.memory.regions[1]->base=0x40e10000 memblock.memory.regions[1]->size=0x1f1f0000*/
+	/*Second base=0x40080000 size=0xd9000 idx=1 rgn = &type->regions[1]*/
 
 	BUG_ON(type->cnt >= type->max);
 	memmove(rgn + 1, rgn, (type->cnt - idx) * sizeof(*rgn));
+	/*First memblock.memory.regions[0]->base=0x40080000 memblock.memory.regions[1]->size=0x1ff80000*/
+	/*First memblock.memory.regions[1]->base=0x40080000 memblock.memory.regions[1]->size=0x1ff80000*/
+
+	/*Second memblock.memory.regions[0]->base=0x40000000 memblock.memory.regions[1]->size=0x00080000*/
+	/*Second memblock.memory.regions[1]->base=0x40e10000 memblock.memory.regions[1]->size=0x1f1f0000*/
+	/*Second memblock.memory.regions[2]->base=0x40e10000 memblock.memory.regions[1]->size=0x1f1f0000*/
 	rgn->base = base;
 	rgn->size = size;
 	rgn->flags = flags;
+	/*First memblock.memory.regions[0]->base=0x40000000 memblock.memory.regions[1]->size=0x40080000*/
+	/*First memblock.memory.regions[1]->base=0x40080000 memblock.memory.regions[1]->size=0x1ff80000*/
+
+	/*Second memblock.memory.regions[0]->base=0x40000000 memblock.memory.regions[1]->size=0x80000*/
+	/*Second memblock.memory.regions[1]->base=0x40080000 memblock.memory.regions[1]->size=0xd9000*/
+	/*Second memblock.memory.regions[2]->base=0x40e10000 memblock.memory.regions[1]->size=0x1f1f0000*/
+
 	memblock_set_region_node(rgn, nid);
 	type->cnt++;
 	type->total_size += size;
@@ -637,9 +656,15 @@ static int __init_memblock memblock_isolate_range(struct memblock_type *type,
 		if (memblock_double_array(type, base, size) < 0)
 			return -ENOMEM;
 
+	/*memblock.memory.regions[0]->base=0x40000000 memblock.memory.regions[1]->size=0x20000000*/
 	for_each_memblock_type(type, rgn) {
 		phys_addr_t rbase = rgn->base;
 		phys_addr_t rend = rbase + rgn->size;
+		/*First base=0x40080000 end=0x40e10000 rbase=0x40000000 rend=0x60000000*/
+		/*Second base=0x40080000 end=0x40e10000 rbase=0x40080000 rend=0x60000000*/
+	/*Second memblock.memory.regions[0]->base=0x40000000 memblock.memory.regions[1]->size=0x80000*/
+	/*Second memblock.memory.regions[1]->base=0x40080000 memblock.memory.regions[1]->size=0x1ff80000*/
+		/*第二次循环时候,rgn->base=0x40080000 rgn->size=0x1ff80000*/
 
 		if (rbase >= end)
 			break;
@@ -654,6 +679,8 @@ static int __init_memblock memblock_isolate_range(struct memblock_type *type,
 			rgn->base = base;
 			rgn->size -= base - rbase;
 			type->total_size -= base - rbase;
+			/*First memblock.memory.regions[0]->base=0x40080000 memblock.memory.regions[1]->size=0x1ff80000*/
+			/*First rbase=0x40000000 (base-rbase)=0x80000 idx=0*/
 			memblock_insert_region(type, idx, rbase, base - rbase,
 					       memblock_get_region_node(rgn),
 					       rgn->flags);
@@ -664,6 +691,8 @@ static int __init_memblock memblock_isolate_range(struct memblock_type *type,
 			 */
 			rgn->base = end;
 			rgn->size -= end - rbase;
+			/*Second memblock.memory.regions[0]->base=0x40000000 memblock.memory.regions[1]->size=0x00080000 idx=1*/
+			/*Second memblock.memory.regions[1]->base=0x40e10000 memblock.memory.regions[1]->size=0x1f1f0000 idx=1*/
 			type->total_size -= end - rbase;
 			memblock_insert_region(type, idx--, rbase, end - rbase,
 					       memblock_get_region_node(rgn),
