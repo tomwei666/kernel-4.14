@@ -544,6 +544,8 @@ static void __init map_kernel(pgd_t *pgd)
 	 * Only rodata will be remapped with different permissions later on,
 	 * all other segments are allowed to use contiguous mappings.
 	 */
+	//VMALLOC_START=0xffff000008000000 VMALLOC_END=0xffff7dffbfff0000
+	//_text=ffff000008080000 _这个地址在VMALLOC_START和VMALLOC_END之间.
 	map_kernel_segment(pgd, _text, _etext, text_prot, &vmlinux_text, 0,
 			   VM_NO_GUARD);
 	map_kernel_segment(pgd, __start_rodata, __inittext_begin, PAGE_KERNEL,
