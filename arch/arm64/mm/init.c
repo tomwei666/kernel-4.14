@@ -233,6 +233,8 @@ static void __init zone_sizes_init(unsigned long min, unsigned long max)
 {
 	unsigned long max_zone_pfns[MAX_NR_ZONES]  = {0};
 
+	//max_zone_pfns[ZONE_DMA] = 0x60000;
+	//这里可以改变ZONE_DMA区域大小
 	if (IS_ENABLED(CONFIG_ZONE_DMA))
 		max_zone_pfns[ZONE_DMA] = PFN_DOWN(max_zone_dma_phys());
 	max_zone_pfns[ZONE_NORMAL] = max;
