@@ -270,6 +270,7 @@ int is_vmalloc_or_module_addr(const void *x)
 
 /*
  * Walk a vmap address to the struct page it maps.
+ * 根据vmalloc_addr中的pte内容得到page结构体.
  */
 struct page *vmalloc_to_page(const void *vmalloc_addr)
 {
@@ -311,7 +312,9 @@ struct page *vmalloc_to_page(const void *vmalloc_addr)
 		return NULL;
 
 	ptep = pte_offset_map(pmd, addr);
+	//就是得到addr对应的pte的虚拟地址
 	pte = *ptep;
+	//pte就是addr对应的pte中内容，就是page相关的，可以从pte得到page.
 	if (pte_present(pte))
 		page = pte_page(pte);
 	pte_unmap(ptep);
@@ -321,6 +324,7 @@ EXPORT_SYMBOL(vmalloc_to_page);
 
 /*
  * Map a vmalloc()-space virtual address to the physical page frame number.
+ * 根据vmalloc_addr中的pte内容得到page结构体，得到pfn.
  */
 unsigned long vmalloc_to_pfn(const void *vmalloc_addr)
 {
@@ -348,6 +352,10 @@ static unsigned long cached_align;
 
 static unsigned long vmap_area_pcpu_hole;
 
+/* 轮循vmap_area_root之间所有节点，如果addr的地址处于某个va,
+ * 根据addr,如果addr在va->va_start和va->va_end之间，则返回va;
+ * 否则返回NULL.
+ */
 static struct vmap_area *__find_vmap_area(unsigned long addr)
 {
 	struct rb_node *n = vmap_area_root.rb_node;
@@ -406,6 +414,8 @@ static BLOCKING_NOTIFIER_HEAD(vmap_notify_list);
 /*
  * Allocate a region of KVA of the specified size and alignment, within the
  * vstart and vend.
+ * 作用分配一个VMA,并把这个VMA放入到红黑树链表中:
+ * vma->va_start就是vstart的对齐，vma->va_end就是va_start+size.
  */
 static struct vmap_area *alloc_vmap_area(unsigned long size,
 				unsigned long align,
@@ -487,10 +497,13 @@ nocache:
 				n = n->rb_right;
 		}
 
+		//如果vstart位于vma中某个节点中，也就是tmp->va_end >
+		//vstart>tmp->va_start,则 first = tmp;如果first=NULL,则是found!
+		//也就是vstart没有位于vma的所有节点中.
 		if (!first)
 			goto found;
 	}
-
+	//这边没看懂，应该请求是addr位于某个vma之间的处理.
 	/* from the starting point, walk areas until a suitable hole is found */
 	while (addr + size > first->va_start && addr + size <= vend) {
 		if (addr + cached_hole_size < first->va_start)
@@ -512,6 +525,8 @@ found:
 	va->va_start = addr;
 	va->va_end = addr + size;
 	va->flags = 0;
+	//把函数中的vstart,
+	//vend放入到vma中，并通过__insert_vmap_area函数插入到红黑树链表中.
 	__insert_vmap_area(va);
 	free_vmap_cache = &va->rb_node;
 	spin_unlock(&vmap_area_lock);
@@ -1367,6 +1382,7 @@ int map_vm_area(struct vm_struct *area, pgprot_t prot, struct page **pages)
 }
 EXPORT_SYMBOL_GPL(map_vm_area);
 
+/*建立vm_struct和vmap_area的关系,addr一样，并且把vmap_area->vm=vm*/
 static void setup_vmalloc_vm(struct vm_struct *vm, struct vmap_area *va,
 			      unsigned long flags, const void *caller)
 {
@@ -1407,6 +1423,7 @@ static struct vm_struct *__get_vm_area_node(unsigned long size,
 		align = 1ul << clamp_t(int, get_count_order_long(size),
 				       PAGE_SHIFT, IOREMAP_MAX_ORDER);
 
+	/*1. 分配一个vm_struct*/
 	area = kzalloc_node(sizeof(*area), gfp_mask & GFP_RECLAIM_MASK, node);
 	if (unlikely(!area))
 		return NULL;
@@ -1414,12 +1431,15 @@ static struct vm_struct *__get_vm_area_node(unsigned long size,
 	if (!(flags & VM_NO_GUARD))
 		size += PAGE_SIZE;
 
+	/*2.分配一个start开始，end结束的vmap_area*/
 	va = alloc_vmap_area(size, align, start, end, node, gfp_mask);
 	if (IS_ERR(va)) {
 		kfree(area);
 		return NULL;
 	}
 
+	/*3.分配一个start开始，end结束的vmap_area,
+	 vm_struct怎么建立addr与page的关系还没有*/
 	setup_vmalloc_vm(area, va, flags, caller);
 
 	return area;

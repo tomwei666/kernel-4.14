@@ -400,9 +400,12 @@ static inline phys_addr_t pmd_page_paddr(pmd_t pmd)
 
 /* Find an entry in the third-level page table. */
 #define pte_index(addr)		(((addr) >> PAGE_SHIFT) & (PTRS_PER_PTE - 1))
-
+/*pte_offset_phys会从addr对应pmd的entry取出物理地址,得到pte的物理地址，最后得到addr对应的pte的物理地址*/
 #define pte_offset_phys(dir,addr)	(pmd_page_paddr(READ_ONCE(*(dir))) + pte_index(addr) * sizeof(pte_t))
 #define pte_offset_kernel(dir,addr)	((pte_t *)__va(pte_offset_phys((dir), (addr))))
+/*pte_offset_kernel就是addr对应的pte的虚拟地址,dir应该是addr对应的pmd的entry的虚拟地址。
+ *可以使用pmd_offset(dir,addr),得到addr对应的pmd的entry的虚拟地址
+ */
 
 #define pte_offset_map(dir,addr)	pte_offset_kernel((dir), (addr))
 #define pte_offset_map_nested(dir,addr)	pte_offset_kernel((dir), (addr))
@@ -454,6 +457,7 @@ static inline phys_addr_t pud_page_paddr(pud_t pud)
 
 #define pmd_offset_phys(dir, addr)	(pud_page_paddr(*(dir)) + pmd_index(addr) * sizeof(pmd_t))
 #define pmd_offset(dir, addr)		((pmd_t *)__va(pmd_offset_phys((dir), (addr))))
+/*dir就是addr对应的pud的entry,可以使用pud_offset函数得到dir参数*/
 
 #define pmd_set_fixmap(addr)		((pmd_t *)set_fixmap_offset(FIX_PMD, addr))
 #define pmd_set_fixmap_offset(pud, addr)	pmd_set_fixmap(pmd_offset_phys(pud, addr))
