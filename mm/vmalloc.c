@@ -100,6 +100,14 @@ static void vunmap_pud_range(p4d_t *p4d, unsigned long addr, unsigned long end)
 	} while (pud++, addr = next, addr != end);
 }
 
+/* intel支持5级页表，则在PGD和PUD之间加了个页表，P4D页表
+ * 如果在4级页表,P4D=PGD ,在p4d_offset函数中，可以看到P4D=PGD
+ * static inline p4d_t *p4d_offset(pgd_t *pgd, unsigned long address)
+ * {
+ * return (p4d_t *)pgd;
+ *  }
+ */
+ 
 static void vunmap_p4d_range(pgd_t *pgd, unsigned long addr, unsigned long end)
 {
 	p4d_t *p4d;
