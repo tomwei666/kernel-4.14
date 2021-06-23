@@ -417,6 +417,7 @@ static BLOCKING_NOTIFIER_HEAD(vmap_notify_list);
  * 作用分配一个VMA,并把这个VMA放入到红黑树链表中:
  * vma->va_start就是vstart的对齐，vma->va_end就是va_start+size.
  */
+static int debug11 =0;
 static struct vmap_area *alloc_vmap_area(unsigned long size,
 				unsigned long align,
 				unsigned long vstart, unsigned long vend,
@@ -431,6 +432,9 @@ static struct vmap_area *alloc_vmap_area(unsigned long size,
 	BUG_ON(!size);
 	BUG_ON(offset_in_page(size));
 	BUG_ON(!is_power_of_2(align));
+
+	if((vstart == VMALLOC_START) && (vend==VMALLOC_END))
+	    debug11 += 1;
 
 	might_sleep();
 
@@ -468,8 +472,12 @@ nocache:
 	cached_vstart = vstart;
 	cached_align = align;
 
+	if(3<debug11<6)
+		printk(KERN_ERR "tom F=%s L=%d\n",__func__,__LINE__);
 	/* find starting point for our search */
 	if (free_vmap_cache) {
+		if(3<debug11<6)
+		    printk(KERN_ERR "tom F=%s L=%d\n",__func__,__LINE__);
 		first = rb_entry(free_vmap_cache, struct vmap_area, rb_node);
 		addr = ALIGN(first->va_end, align);
 		if (addr < vstart)
@@ -478,6 +486,8 @@ nocache:
 			goto overflow;
 
 	} else {
+		if(3<debug11<6)
+		    printk(KERN_ERR "tom F=%s L=%d\n",__func__,__LINE__);
 		addr = ALIGN(vstart, align);
 		if (addr + size < addr)
 			goto overflow;
@@ -497,34 +507,62 @@ nocache:
 				n = n->rb_right;
 		}
 
+		if(3<debug11<6)
+		    printk(KERN_ERR "tom F=%s L=%d\n",__func__,__LINE__);
+
 		//如果vstart位于vma中某个节点中，也就是tmp->va_end >
 		//vstart>tmp->va_start,则 first = tmp;如果first=NULL,则是found!
 		//也就是vstart没有位于vma的所有节点中.
-		if (!first)
+		if (!first) {
+		    if(3<debug11<6)
+			printk(KERN_ERR "tom F=%s L=%d\n",__func__,__LINE__);
 			goto found;
+		}
 	}
 	//这边没看懂，应该请求是addr位于某个vma之间的处理.
 	/* from the starting point, walk areas until a suitable hole is found */
 	while (addr + size > first->va_start && addr + size <= vend) {
+		    if(3<debug11<6)
+		    printk(KERN_ERR "tom F=%s L=%d addr=%llx va_start=%llx va_end=%llx\n",__func__,__LINE__,addr,first->va_start,first->va_end);
 		if (addr + cached_hole_size < first->va_start)
 			cached_hole_size = first->va_start - addr;
 		addr = ALIGN(first->va_end, align);
+
+		    if(3<debug11<6)
+		    printk(KERN_ERR "tom F=%s L=%d addr=%llx va_start=%llx va_end=%llx\n",__func__,__LINE__,addr,first->va_start,first->va_end);
+
 		if (addr + size < addr)
 			goto overflow;
 
 		if (list_is_last(&first->list, &vmap_area_list))
+		{
+		    if(3<debug11<6)
+		    printk(KERN_ERR "tom F=%s L=%d\n",__func__,__LINE__);
 			goto found;
+		}
 
+		    if(3<debug11<6)
+		    printk(KERN_ERR "tom F=%s L=%d\n",__func__,__LINE__);
 		first = list_next_entry(first, list);
 	}
 
 found:
+		    if(3<debug11<6)
+	{
+		printk(KERN_ERR "tom F=%s L=%d addr=%llx size=%llx vend=%llx\n",__func__,__LINE__,addr,size,vend);
+		printk(KERN_ERR "tom F=%s L=%d VMALLOC_START=%llx %llx\n",__func__,__LINE__,VMALLOC_START,VMALLOC_END);
+	}
+
 	if (addr + size > vend)
 		goto overflow;
 
 	va->va_start = addr;
 	va->va_end = addr + size;
 	va->flags = 0;
+
+	if((debug11==5) || (debug11 ==6))
+	    printk(KERN_ERR "tom F=%s L=%d va->va_start=%llx va->va_end=%llx\n",__func__,__LINE__,va->va_start,va->va_end);
+
 	//把函数中的vstart,
 	//vend放入到vma中，并通过__insert_vmap_area函数插入到红黑树链表中.
 	__insert_vmap_area(va);
