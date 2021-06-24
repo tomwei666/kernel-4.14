@@ -416,10 +416,8 @@ static BLOCKING_NOTIFIER_HEAD(vmap_notify_list);
  * vstart and vend.
  * 作用分配一个VMA,并把这个VMA放入到红黑树链表中:
  * vma->va_start就是vstart的对齐，vma->va_end就是va_start+size.
- * 整体逻辑:
- * 1)指定addr，如果这个地址没有分配，则使用这个addr.例如在493行开始.
- * 2)指定addr，如果这个地址被分配了，则找个空洞，或者没有分配的addr,例如521行.
  */
+static int debug11 =0;
 static struct vmap_area *alloc_vmap_area(unsigned long size,
 				unsigned long align,
 				unsigned long vstart, unsigned long vend,
@@ -434,6 +432,9 @@ static struct vmap_area *alloc_vmap_area(unsigned long size,
 	BUG_ON(!size);
 	BUG_ON(offset_in_page(size));
 	BUG_ON(!is_power_of_2(align));
+
+	if((vstart == VMALLOC_START) && (vend==VMALLOC_END))
+	    debug11 += 1;
 
 	might_sleep();
 
@@ -471,8 +472,14 @@ nocache:
 	cached_vstart = vstart;
 	cached_align = align;
 
+	if(debug11 < 19)
+		printk(KERN_ERR "tom size=%llx align=%llx vstart=%llx vend=%llx debug11=%d\n",size,align,vstart,vend,debug11);
+
 	/* find starting point for our search */
 	if (free_vmap_cache) {
+
+		if(debug11 < 19)
+		    printk(KERN_ERR "tom F=%s L=%d debug11=%d\n",__func__,__LINE__,debug11);
 		first = rb_entry(free_vmap_cache, struct vmap_area, rb_node);
 		addr = ALIGN(first->va_end, align);
 		if (addr < vstart)
@@ -481,6 +488,8 @@ nocache:
 			goto overflow;
 
 	} else {
+		if(debug11 < 19)
+		    printk(KERN_ERR "tom F=%s L=%d debug11=%d\n",__func__,__LINE__,debug11);
 		addr = ALIGN(vstart, align);
 		if (addr + size < addr)
 			goto overflow;
@@ -488,8 +497,6 @@ nocache:
 		n = vmap_area_root.rb_node;
 		first = NULL;
 
-		//轮循所有节点,如果addr大于所有节点的tmp->va_end,
-		//则可以分配vma->start为addr的VMA.
 		while (n) {
 			struct vmap_area *tmp;
 			tmp = rb_entry(n, struct vmap_area, rb_node);
@@ -502,42 +509,69 @@ nocache:
 				n = n->rb_right;
 		}
 
+		if(debug11 < 19)
+		    printk(KERN_ERR "tom F=%s L=%d\n",__func__,__LINE__);
+
 		//如果vstart位于vma中某个节点中，也就是tmp->va_end >
 		//vstart>tmp->va_start,则 first = tmp;如果first=NULL,则是found!
 		//也就是vstart没有位于vma的所有节点中.
-		if (!first)
+		if (!first) {
+		if(debug11 < 19)
+			printk(KERN_ERR "tom F=%s L=%d debug11=%d\n",__func__,__LINE__,debug11);
 			goto found;
+		}
 	}
 	//这边没看懂，应该请求是addr位于某个vma之间的处理.
-	// 逻辑如下:
-	// addr = ALIGN(first->va_end, align)指向当前vma的结束处, first =
-	// list_next_entry，就是让first指向下一个vma.
-	// 1. addr + size <
-	// first->va_start,说明当前VMA和下一个VMA之间有空洞，足够分配当前VMA.
-	// 2. 走到list_is_last(&first->list,
-	// &vmap_area_list),已经走到所有VMA的结束处，从结束处开始，分配大小为size
-	// 的VMA.
 	/* from the starting point, walk areas until a suitable hole is found */
 	while (addr + size > first->va_start && addr + size <= vend) {
+		if(debug11 < 19)
+		   printk(KERN_ERR "tom F=%s L=%d debug11=%d\n",__func__,__LINE__,debug11);
+
+	          if(debug11 < 19)
+		    printk(KERN_ERR "tom F=%s L=%d addr=%llx va_start=%llx va_end=%llx align=%llx debug11=%d\n",__func__,__LINE__,addr,first->va_start,first->va_end,align,debug11);
 		if (addr + cached_hole_size < first->va_start)
 			cached_hole_size = first->va_start - addr;
 		addr = ALIGN(first->va_end, align);
+
+	          if(debug11 < 19)
+		    printk(KERN_ERR "tom F=%s L=%d addr=%llx va_start=%llx va_end=%llx debug11=%d\n",__func__,__LINE__,addr,first->va_start,first->va_end,debug11);
+
 		if (addr + size < addr)
 			goto overflow;
+	          if(debug11 < 19)
+		      printk(KERN_ERR "tom F=%s L=%d addr=%llx va_start=%llx va_end=%llx debug11=%d\n",__func__,__LINE__,addr,first->va_start,first->va_end,debug11);
 
 		if (list_is_last(&first->list, &vmap_area_list))
+		{
+	          if(debug11 < 19)
+		    printk(KERN_ERR "tom F=%s L=%d addr=%llx va_start=%llx va_end=%llx debug11=%d\n",__func__,__LINE__,addr,first->va_start,first->va_end,debug11);
 			goto found;
+		}
 
+	        if(debug11 < 19)
+		    printk(KERN_ERR "tom F=%s L=%d addr=%llx va_start=%llx va_end=%llx debug11=%d\n",__func__,__LINE__,addr,first->va_start,first->va_end,debug11);
 		first = list_next_entry(first, list);
+	        if(debug11 < 19)
+		    printk(KERN_ERR "tom F=%s L=%d addr=%llx va_start=%llx va_end=%llx debug11=%d\n",__func__,__LINE__,addr,first->va_start,first->va_end,debug11);
 	}
 
 found:
+	        if(debug11 < 19)
+	{
+		printk(KERN_ERR "tom F=%s L=%d addr=%llx size=%llx vend=%llx %d\n",__func__,__LINE__,addr,size,vend,debug11);
+		printk(KERN_ERR "tom F=%s L=%d VMALLOC_START=%llx %llx %d\n",__func__,__LINE__,VMALLOC_START,VMALLOC_END,debug11);
+	}
+
 	if (addr + size > vend)
 		goto overflow;
 
 	va->va_start = addr;
 	va->va_end = addr + size;
 	va->flags = 0;
+
+	if(debug11 < 19)
+		printk(KERN_ERR "tom F=%s L=%d va->va_start=%llx va->va_end=%llx %d\n",__func__,__LINE__,va->va_start,va->va_end,debug11);
+
 	//把函数中的vstart,
 	//vend放入到vma中，并通过__insert_vmap_area函数插入到红黑树链表中.
 	__insert_vmap_area(va);
@@ -1692,7 +1726,6 @@ void *vmap(struct page **pages, unsigned int count,
 	if (!area)
 		return NULL;
 
-	//4. 就是把pages做成pte，然后填充到addr对应的pte中.
 	if (map_vm_area(area, prot, pages)) {
 		vunmap(area->addr);
 		return NULL;

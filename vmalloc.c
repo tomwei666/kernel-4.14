@@ -416,10 +416,8 @@ static BLOCKING_NOTIFIER_HEAD(vmap_notify_list);
  * vstart and vend.
  * 作用分配一个VMA,并把这个VMA放入到红黑树链表中:
  * vma->va_start就是vstart的对齐，vma->va_end就是va_start+size.
- * 整体逻辑:
- * 1)指定addr，如果这个地址没有分配，则使用这个addr.例如在493行开始.
- * 2)指定addr，如果这个地址被分配了，则找个空洞，或者没有分配的addr,例如521行.
  */
+/*static int debug12 = 0;*/
 static struct vmap_area *alloc_vmap_area(unsigned long size,
 				unsigned long align,
 				unsigned long vstart, unsigned long vend,
@@ -430,6 +428,8 @@ static struct vmap_area *alloc_vmap_area(unsigned long size,
 	unsigned long addr;
 	int purged = 0;
 	struct vmap_area *first;
+	/*if((vstart==VMALLOC_START) && (vend==VMALLOC_END))*/
+	    /*debug12 += 1;*/
 
 	BUG_ON(!size);
 	BUG_ON(offset_in_page(size));
@@ -488,8 +488,6 @@ nocache:
 		n = vmap_area_root.rb_node;
 		first = NULL;
 
-		//轮循所有节点,如果addr大于所有节点的tmp->va_end,
-		//则可以分配vma->start为addr的VMA.
 		while (n) {
 			struct vmap_area *tmp;
 			tmp = rb_entry(n, struct vmap_area, rb_node);
@@ -506,19 +504,17 @@ nocache:
 		//vstart>tmp->va_start,则 first = tmp;如果first=NULL,则是found!
 		//也就是vstart没有位于vma的所有节点中.
 		if (!first)
+		{
+		    /*if(debug12 == 20)*/
+			/*printk(KERN_ERR "tom 33 F=%s L=%d\n",__func__,__LINE__);*/
 			goto found;
+		}
 	}
 	//这边没看懂，应该请求是addr位于某个vma之间的处理.
-	// 逻辑如下:
-	// addr = ALIGN(first->va_end, align)指向当前vma的结束处, first =
-	// list_next_entry，就是让first指向下一个vma.
-	// 1. addr + size <
-	// first->va_start,说明当前VMA和下一个VMA之间有空洞，足够分配当前VMA.
-	// 2. 走到list_is_last(&first->list,
-	// &vmap_area_list),已经走到所有VMA的结束处，从结束处开始，分配大小为size
-	// 的VMA.
 	/* from the starting point, walk areas until a suitable hole is found */
 	while (addr + size > first->va_start && addr + size <= vend) {
+	    /*if(debug12 == 20)*/
+		/*printk(KERN_ERR "tom 33 F=%s L=%d\n",__func__,__LINE__);*/
 		if (addr + cached_hole_size < first->va_start)
 			cached_hole_size = first->va_start - addr;
 		addr = ALIGN(first->va_end, align);
@@ -527,6 +523,9 @@ nocache:
 
 		if (list_is_last(&first->list, &vmap_area_list))
 			goto found;
+	    /*if(debug12 == 20)*/
+		/*printk(KERN_ERR "tom 33 F=%s L=%d\n",__func__,__LINE__);*/
+		if (addr + cached_hole_size < first->va_start)
 
 		first = list_next_entry(first, list);
 	}
@@ -534,6 +533,9 @@ nocache:
 found:
 	if (addr + size > vend)
 		goto overflow;
+	    /*if(debug12 == 20)*/
+		/*printk(KERN_ERR "tom 33 F=%s L=%d\n",__func__,__LINE__);*/
+		if (addr + cached_hole_size < first->va_start)
 
 	va->va_start = addr;
 	va->va_end = addr + size;
@@ -1420,12 +1422,18 @@ static void clear_vm_uninitialized_flag(struct vm_struct *vm)
 	vm->flags &= ~VM_UNINITIALIZED;
 }
 
+static int debug11 = 0;
 static struct vm_struct *__get_vm_area_node(unsigned long size,
 		unsigned long align, unsigned long flags, unsigned long start,
 		unsigned long end, int node, gfp_t gfp_mask, const void *caller)
 {
 	struct vmap_area *va;
 	struct vm_struct *area;
+	/*if((start==VMALLOC_START) && (end==VMALLOC_END)) {*/
+	    /*debug11 += 1;*/
+	/*}*/
+	/*if(debug11 == 3)*/
+	    /*printk(KERN_ERR "tom 111 F=%s\n",__func__);*/
 
 	BUG_ON(in_interrupt());
 	size = PAGE_ALIGN(size);
@@ -1493,6 +1501,7 @@ struct vm_struct *get_vm_area(unsigned long size, unsigned long flags)
 struct vm_struct *get_vm_area_caller(unsigned long size, unsigned long flags,
 				const void *caller)
 {
+        /*printk(KERN_ERR "tom F=%s L=%d\n",__func__,__LINE__);*/
 	return __get_vm_area_node(size, 1, flags, VMALLOC_START, VMALLOC_END,
 				  NUMA_NO_NODE, GFP_KERNEL, caller);
 }
@@ -1692,7 +1701,6 @@ void *vmap(struct page **pages, unsigned int count,
 	if (!area)
 		return NULL;
 
-	//4. 就是把pages做成pte，然后填充到addr对应的pte中.
 	if (map_vm_area(area, prot, pages)) {
 		vunmap(area->addr);
 		return NULL;
