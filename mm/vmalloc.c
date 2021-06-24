@@ -504,6 +504,14 @@ nocache:
 			goto found;
 	}
 	//这边没看懂，应该请求是addr位于某个vma之间的处理.
+	// 逻辑如下:
+	// addr = ALIGN(first->va_end, align)指向当前vma的结束处, first =
+	// list_next_entry，就是让first指向下一个vma.
+	// 1. addr + size <
+	// first->va_start,说明当前VMA和下一个VMA之间有空洞，足够分配当前VMA.
+	// 2. 走到list_is_last(&first->list,
+	// &vmap_area_list),已经走到所有VMA的结束处，从结束处开始，分配大小为size
+	// 的VMA.
 	/* from the starting point, walk areas until a suitable hole is found */
 	while (addr + size > first->va_start && addr + size <= vend) {
 		if (addr + cached_hole_size < first->va_start)
