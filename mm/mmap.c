@@ -1868,6 +1868,7 @@ found:
 	return gap_start;
 }
 
+//找到一个未使用的VMA，并返回VMA的va_start
 unsigned long unmapped_area_topdown(struct vm_unmapped_area_info *info)
 {
 	struct mm_struct *mm = current->mm;
@@ -1922,10 +1923,13 @@ check_current:
 		gap_end = vm_start_gap(vma);
 		if (gap_end < low_limit)
 			return -ENOMEM;
+		//gap_end就是下一个VMA的va_start,gap_start就是当前va_end.
+		//如果gap_end-gap_start的size大于length,则返回
 		if (gap_start <= high_limit &&
 		    gap_end > gap_start && gap_end - gap_start >= length)
 			goto found;
 
+		//这边的逻辑没看懂
 		/* Visit left subtree if it looks promising */
 		if (vma->vm_rb.rb_left) {
 			struct vm_area_struct *left =
@@ -1937,6 +1941,7 @@ check_current:
 			}
 		}
 
+		//这边的逻辑没看懂
 		/* Go back up the rbtree to find next candidate node */
 		while (true) {
 			struct rb_node *prev = &vma->vm_rb;
@@ -1959,11 +1964,13 @@ found:
 
 found_highest:
 	/* Compute highest gap address at the desired alignment */
+	//得到可用vma的va_start
 	gap_end -= info->length;
 	gap_end -= (gap_end - info->align_offset) & info->align_mask;
 
 	VM_BUG_ON(gap_end < info->low_limit);
 	VM_BUG_ON(gap_end < gap_start);
+	//返回vma的va_start
 	return gap_end;
 }
 
