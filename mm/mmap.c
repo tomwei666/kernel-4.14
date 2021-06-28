@@ -487,21 +487,32 @@ anon_vma_interval_tree_post_update_vma(struct vm_area_struct *vma)
 		anon_vma_interval_tree_insert(avc, &avc->anon_vma->rb_root);
 }
 
+//下次分析下 rb_link和rb_parent
 static int find_vma_links(struct mm_struct *mm, unsigned long addr,
 		unsigned long end, struct vm_area_struct **pprev,
 		struct rb_node ***rb_link, struct rb_node **rb_parent)
 {
 	struct rb_node **__rb_link, *__rb_parent, *rb_prev;
 
+	//__rb_link指向红黑树的根节点
 	__rb_link = &mm->mm_rb.rb_node;
 	rb_prev = __rb_parent = NULL;
+
+	//循环整个树的节点vma_tmp，如果vma_tmp->va_end和addr比较
+	//1. 如果vma_tmp->va_end小于addr,则需要向右节点轮循.
+	//2. 如果vma_tmp->va_end大于addr,则需要向左方节点轮循,同时比较vma_tmp->vma_start是否小于addr，如果是则重合，返回负数结果，提示没有合适的vma.
+	//3. 只到*__rb_link为NULL，显然走的最左边，或者最右边，这是一个合适的插入点.
 
 	while (*__rb_link) {
 		struct vm_area_struct *vma_tmp;
 
+		//__rb_parent也指向红黑树的根节点
 		__rb_parent = *__rb_link;
+		//vma_tmp保存轮循树某个节点.
 		vma_tmp = rb_entry(__rb_parent, struct vm_area_struct, vm_rb);
 
+		//如果vma_tmp中的vm_end大于addr，显然节点应该向左下节点走.
+		//如果vma_tmp中的vm_end小于addr，显然节点应该向右下节点走.
 		if (vma_tmp->vm_end > addr) {
 			/* Fail if an existing vma overlaps the area */
 			if (vma_tmp->vm_start < end)
@@ -1328,6 +1339,7 @@ unsigned long do_mmap(struct file *file, unsigned long addr,
 	int pkey = 0;
 
 	*populate = 0;
+	printk(KERN_ERR "tom F=%s L=%d flags=%llx\n",__func__,__LINE__,flags);
 
 	if (!len)
 		return -EINVAL;
@@ -1362,6 +1374,8 @@ unsigned long do_mmap(struct file *file, unsigned long addr,
 	 * that it represents a valid section of the address space.
 	 */
 	addr = get_unmapped_area(file, addr, len, pgoff, flags);
+
+	//如果addr不是page对齐的，分配的地址不对，不需要进行下面操作，直接返回这个addr.
 	if (offset_in_page(addr))
 		return addr;
 
@@ -1611,6 +1625,8 @@ unsigned long mmap_region(struct file *file, unsigned long addr,
 	unsigned long charged = 0;
 
 	/* Check against address space limit. */
+	//如果目前这个进程中的pages不够分配，则释放一些vma,然后再检查下，如果
+	//还是不够分配，则返回错误.
 	if (!may_expand_vm(mm, vm_flags, len >> PAGE_SHIFT)) {
 		unsigned long nr_pages;
 
@@ -1655,6 +1671,7 @@ unsigned long mmap_region(struct file *file, unsigned long addr,
 	 * specific mapper. the address has already been validated, but
 	 * not unmapped, but the maps are removed from the list.
 	 */
+	//分配VMA.
 	vma = kmem_cache_zalloc(vm_area_cachep, GFP_KERNEL);
 	if (!vma) {
 		error = -ENOMEM;
@@ -1687,6 +1704,8 @@ unsigned long mmap_region(struct file *file, unsigned long addr,
 		 * new file must not have been exposed to user-space, yet.
 		 */
 		vma->vm_file = get_file(file);
+		//调用驱动的mmap函数
+		printk(KERN_ERR "tom F=%s va_start=%llx va_end=%llx\n",__func__,vma->va_start,vm->va_end);
 		error = call_mmap(file, vma);
 		if (error)
 			goto unmap_and_free_vma;
@@ -3162,12 +3181,16 @@ out:
 /*
  * Return true if the calling process may expand its vm space by the passed
  * number of pages
+ * 整体是比较要分配的vma中需要的npages是否超过限制
+ * 返回结果为TRUE，则进程可以分配这个VMA;返回结果为FALSE，则进程不可以分配这个VMA.
  */
 bool may_expand_vm(struct mm_struct *mm, vm_flags_t flags, unsigned long npages)
 {
 	if (mm->total_vm + npages > rlimit(RLIMIT_AS) >> PAGE_SHIFT)
 		return false;
 
+	//整个逻辑是如果rlimit(RLIMIT_DATA)是0时候，则再比较下data_vm加上npages
+	//是否小于rlimit_max(RLIMIT_DATA) >> PAGE_SHIFT)
 	if (is_data_mapping(flags) &&
 	    mm->data_vm + npages > rlimit(RLIMIT_DATA) >> PAGE_SHIFT) {
 		/* Workaround for Valgrind */

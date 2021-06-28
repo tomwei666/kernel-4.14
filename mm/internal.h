@@ -274,6 +274,7 @@ static inline bool is_stack_mapping(vm_flags_t flags)
 /*
  * Data area - private, writable, not stack
  */
+// flags是VM_WRITE不是VM_SHARED,也不是VM_STACK
 static inline bool is_data_mapping(vm_flags_t flags)
 {
 	return (flags & (VM_WRITE | VM_SHARED | VM_STACK)) == VM_WRITE;

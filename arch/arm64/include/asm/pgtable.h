@@ -540,6 +540,7 @@ static inline phys_addr_t pgd_page_paddr(pgd_t pgd)
 
 #define pgd_offset_raw(pgd, addr)	((pgd) + pgd_index(addr))
 
+//根据mm->pgd的虚拟地址加上pgd_index(addr)，得到addr对应pgd的虚拟地址.
 #define pgd_offset(mm, addr)	(pgd_offset_raw((mm)->pgd, (addr)))
 
 /* to find an entry in a kernel page-table-directory */
