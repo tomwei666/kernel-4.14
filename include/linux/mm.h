@@ -1212,6 +1212,9 @@ static inline void clear_page_pfmemalloc(struct page *page)
  */
 extern void pagefault_out_of_memory(void);
 
+//用offset_in_page判断分配是否成功，由于在分配成功的情况下，分配的addr是page对齐的，
+//所以addr的低12bit都是0,而如果addr的低12bit的值不是0，则说明分配失败.
+//offset_in_page(0x1003)=3 offset_in_page(0x1000)=0
 #define offset_in_page(p)	((unsigned long)(p) & ~PAGE_MASK)
 
 /*
