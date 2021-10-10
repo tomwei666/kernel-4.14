@@ -70,6 +70,9 @@ static inline unsigned long virt_to_fix(const unsigned long vaddr)
 #endif
 
 /* Return a pointer with offset calculated */
+/* 功能: 把idx对应的FIXMAP的虚拟地址的pte的entry指向phys(屏蔽低12位)的地址。
+ * 并返回idx对应的虚拟地址+phys低12位的地址的偏移.
+ */
 #define __set_fixmap_offset(idx, phys, flags)				\
 ({									\
 	unsigned long ________addr;					\

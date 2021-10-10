@@ -791,6 +791,11 @@ void __init early_fixmap_init(void)
 	}
 }
 
+/*功能:给idx对应的vaddr的pte指向phys的物理地址
+ * FIX_PGD对应的虚拟地址，已经在early_fixmap_init函数中，完成pgd,pud,pmd的entry
+ * 填充，现在pte的entry填充是在这个函数完成的。
+ * FIXMAP的虚拟地址的PTE的基地址是:bm_pte数组中.
+ */
 void __set_fixmap(enum fixed_addresses idx,
 			       phys_addr_t phys, pgprot_t flags)
 {
@@ -799,6 +804,7 @@ void __set_fixmap(enum fixed_addresses idx,
 
 	BUG_ON(idx <= FIX_HOLE || idx >= __end_of_fixed_addresses);
 
+    //找到addr的对应的pte的entry
 	pte = fixmap_pte(addr);
 
 	if (pgprot_val(flags)) {
