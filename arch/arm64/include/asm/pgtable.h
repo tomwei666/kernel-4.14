@@ -412,7 +412,11 @@ static inline phys_addr_t pmd_page_paddr(pmd_t pmd)
 #define pte_unmap(pte)			do { } while (0)
 #define pte_unmap_nested(pte)		do { } while (0)
 
+/*功能:FIX_PTE对应的虚拟地址pte的entry中，写入addr低12位&上0*/
 #define pte_set_fixmap(addr)		((pte_t *)set_fixmap_offset(FIX_PTE, addr))
+/*功能: 基于pmd的addr的pmd的entry的物理地址，写入FIX_PTE中的pte的entry中.
+ * 并返回，FIX_PTE对应地址虚拟地址+低12位的偏移量.
+ */
 #define pte_set_fixmap_offset(pmd, addr)	pte_set_fixmap(pte_offset_phys(pmd, addr))
 #define pte_clear_fixmap()		clear_fixmap(FIX_PTE)
 

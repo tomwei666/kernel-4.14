@@ -120,17 +120,29 @@ static bool pgattr_change_is_safe(u64 old, u64 new)
 	return ((old ^ new) & ~mask) == 0;
 }
 
+/* 功能：
+ * 1. 把FIX_PTE对应的虚拟地址的PTE的ENTRY,写入addr的pte的entry物理地址，也就是FIX_PTE指向addr的pte的entry.
+ * 2. 把addr的pte的entry写入phy对应的地址.
+ * 就是给addr的pte的entry写入phy的物理地址，借用FIX_PTE指向，addr的pte的entry,然后有了addr的pte的entry的虚拟地址，
+ * 这样好给addr的pte的entry賦值.
+ * 整体功能: 就是把addr指向phys物理地址.
+ * 示意图:
+ *    FIX_PTE    addr对应的PTE
+ *   |-----|    |----|      |---|
+ *   |-----|--->|----|----->|---|phys
+ */
 static void init_pte(pmd_t *pmd, unsigned long addr, unsigned long end,
 		     phys_addr_t phys, pgprot_t prot)
 {
 	pte_t *pte;
 
 	pte = pte_set_fixmap_offset(pmd, addr);
+/*1.把基于pmd的addr的物理地址低12位与上0后，然后写到FIX_PTE对应的虚拟地址的PTE的ENTRY中.
+ *2. 返回FIX_PTE的虚拟地址+(pmd,addr)低12位的偏移量.
+ */
 	do {
 		pte_t old_pte = *pte;
-
 		set_pte(pte, pfn_pte(__phys_to_pfn(phys), prot));
-
 		/*
 		 * After the PTE entry has been populated once, we
 		 * only allow updates to the permission attributes.
@@ -143,6 +155,10 @@ static void init_pte(pmd_t *pmd, unsigned long addr, unsigned long end,
 	pte_clear_fixmap();
 }
 
+/*功能: 
+ *
+ *
+ */
 static void alloc_init_cont_pte(pmd_t *pmd, unsigned long addr,
 				unsigned long end, phys_addr_t phys,
 				pgprot_t prot,
@@ -175,7 +191,17 @@ static void alloc_init_cont_pte(pmd_t *pmd, unsigned long addr,
 		phys += next - addr;
 	} while (addr = next, addr != end);
 }
-
+/* 功能：
+ * 1. 把FIX_PMD对应的虚拟地址的PTE的ENTRY,写入addr的pmd的entry物理地址，也就是FIX_PMD指向addr的pmd的entry.
+ * 2. 把addr的pmd的entry写入分配的addr的pte的物理地址。
+ * 就是给addr的pmd的entry写入分配的addr的pte的物理地址，借用FIX_PMD指向，addr的pmd的entry,然后有了addr的pmd的entry的虚拟地址，
+ * 这样好给addr的pmd的entry賦值.
+ * 整体功能: 就是把addr指向phys物理地址.
+ * 示意图:
+ *    FIX_PMD    addr对应的PMD
+ *   |-----|    |----|      |---|
+ *   |-----|--->|----|----->|---|新分配的pte的page
+ */
 static void init_pmd(pud_t *pud, unsigned long addr, unsigned long end,
 		     phys_addr_t phys, pgprot_t prot,
 		     phys_addr_t (*pgtable_alloc)(void), int flags)
@@ -307,7 +333,10 @@ static void alloc_init_pud(pgd_t *pgd, unsigned long addr, unsigned long end,
 
 	pud_clear_fixmap();
 }
-
+/* 功能： 
+ * 1. 就是建立基于pgdir，虚拟地址virt-virt+size，建立pgd,pud,pmd,pte页表.
+ * 2. 把virt指向物理地址phys.
+ */
 static void __create_pgd_mapping(pgd_t *pgdir, phys_addr_t phys,
 				 unsigned long virt, phys_addr_t size,
 				 pgprot_t prot,
@@ -315,6 +344,7 @@ static void __create_pgd_mapping(pgd_t *pgdir, phys_addr_t phys,
 				 int flags)
 {
 	unsigned long addr, length, end, next;
+	/*1. 获取到virt基于pgdir的pgd的基地址*/
 	pgd_t *pgd = pgd_offset_raw(pgdir, virt);
 
 	/*
