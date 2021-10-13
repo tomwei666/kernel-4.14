@@ -1705,7 +1705,7 @@ unsigned long mmap_region(struct file *file, unsigned long addr,
 		 */
 		vma->vm_file = get_file(file);
 		//调用驱动的mmap函数
-		printk(KERN_ERR "tom F=%s va_start=%llx va_end=%llx\n",__func__,vma->va_start,vm->va_end);
+		/*printk(KERN_ERR "tom F=%s va_start=%llx va_end=%llx\n",__func__,vma->va_start,vm->va_end);*/
 		error = call_mmap(file, vma);
 		if (error)
 			goto unmap_and_free_vma;
