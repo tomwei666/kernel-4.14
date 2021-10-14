@@ -1640,6 +1640,14 @@ void __init init_cma_reserved_pageblock(struct page *page)
  *
  * -- nyc
  */
+/*
+ * 使用场景:
+ * 需求order=low=5,而order=5的链表中，没有空闲的page.而order=high=6的链表中，有空闲page。
+ * page参数是order=6的开始页.
+ * 需要做如下工作：
+ * 1. 把order=6,page[1<<5]开始的页给order=5的free_list链表中.
+ * 2. order = 5的free_list中的nr_free增加1.
+ */
 static inline void expand(struct zone *zone, struct page *page,
 	int low, int high, struct free_area *area,
 	int migratetype)
