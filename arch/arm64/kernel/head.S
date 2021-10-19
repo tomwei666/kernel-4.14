@@ -387,8 +387,16 @@ __primary_switched:
 
 	str_l	x21, __fdt_pointer, x5		// Save FDT pointer
 
+
+	PRINT("\n x0 value=")
+	mov x15,x0
+	bl putn_64
+
+    #把kimage_vaddr保存的，可用内存的虚拟地址，保存到x4,x4=0xffff000008000000
 	ldr_l	x4, kimage_vaddr		// Save the offset between
+	# x0中保存的可用内存的物理地址=0x40000000,x4=x4-x0
 	sub	x4, x4, x0			// the kernel virtual and
+    #把x4的值保存到kimage_voffset变量中.
 	str_l	x4, kimage_voffset, x5		// physical mappings
 	
 	# 打印符号kimage_vaddr的值

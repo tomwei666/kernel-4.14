@@ -216,12 +216,15 @@ lr	.req	x30		// link register
 	/*
 	 * @src: source register (32 or 64 bit wide)
 	 * @sym: name of the symbol
+	 * 功能: 把src的内容写入到sym的内存中.
 	 * @tmp: mandatory 64-bit scratch register to calculate the address
 	 *       while <src> needs to be preserved.
 	 */
 	.macro	str_l, src, sym, tmp
 #ifndef MODULE
+	#把sym的地址写入到tmp寄存器中,4k对整齐
 	adrp	\tmp, \sym
+	# lo12:\sym就是sym的低12位,然后就是把src的内容写入到sym的地址中
 	str	\src, [\tmp, :lo12:\sym]
 #else
 	adr_l	\tmp, \sym
