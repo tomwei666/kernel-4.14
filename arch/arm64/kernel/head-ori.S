@@ -43,13 +43,6 @@
 #include <asm/virt.h>
 
 #include "efi-header.S"
-#include "debug-pl011.inc"
-
-#define PL011_VIRT_BASE 0xFFFF0000c0000000
-#define PL011_PHY_BASE 0x9000000
-
-#define PT_PT     0xf7f
-#define PT_DEV_L3 0xe73
 
 #define __PHYS_OFFSET	(KERNEL_START - TEXT_OFFSET)
 
@@ -60,14 +53,6 @@
 #elif TEXT_OFFSET > 0x1fffff
 #error TEXT_OFFSET must be less than 2MB
 #endif
-
-#define PRINT(_s)       \
-        adr   x15, 98f ; \
-        bl    puts    ; \
-        b     99f     ; \
-98:     .asciz _s     ; \
-        .align 2      ; \
-99:
 
 /*
  * Kernel startup entry point.
@@ -129,16 +114,6 @@ pe_header:
 	 *  x19/x20    __primary_switch()         callee preserved temp registers
 	 */
 ENTRY(stext)
-    # Add uart debug for assembler in head.S
-    /* We will use unused register in head.S: x14, x15, x17, x22 and x25.
-	 * x14, uart base address.
-	 * x15, the print contents.
-	 * x17, x22,x25 tmp register.
-	 */
-	mov   x14, #0x9000000 /* x23 := UART base address */
-	ldr   x14,=PL011_PHY_BASE
-	bl    init_uart
-    # Add uart debug for assembler in head.S
 	bl	preserve_boot_args
 	bl	el2_setup			// Drop to EL1, w0=cpu_boot_mode
 	adrp	x23, __PHYS_OFFSET
@@ -171,31 +146,6 @@ preserve_boot_args:
 	mov	x1, #0x20			// 4 x 8 bytes
 	b	__inval_dcache_area		// tail call
 ENDPROC(preserve_boot_args)
-
-.macro	create_uart_page, tbl, virt, tmp1, tmp2,tmp3,flags
-	sub \tmp1,\tbl,#PAGE_SIZE   /*upper dir base*/
-	lsr	\tmp2, \virt, #PUD_SHIFT
-	and	\tmp2, \tmp2, #PTRS_PER_PGD - 1	// table index
-	add \tmp3,\tbl,#PAGE_SIZE  /*upper entry content*/
-	orr \tmp3,\tmp3,#PMD_TYPE_TABLE
-	str	\tmp3, [\tmp1, \tmp2, lsl #3]  /*set pud node*/
-
-	add \tmp1,\tbl,#PAGE_SIZE
-	lsr	\tmp2, \virt, #PMD_SHIFT
-	and	\tmp2, \tmp2, #PTRS_PER_PMD - 1	// table index
-	add \tbl,\tbl,#PAGE_SIZE
-	add \tmp3,\tbl,#PAGE_SIZE  /*upper entry content*/
-	orr \tmp3,\tmp3,#PMD_TYPE_TABLE
-	str	\tmp3, [\tmp1, \tmp2, lsl #3] /*set pmd node*/
-
-	add \tmp1,\tbl,#PAGE_SIZE
-	lsr	\tmp2, \virt, #PAGE_SHIFT
-	and	\tmp2, \tmp2, #PTRS_PER_PTE - 1	// table index
-    mov \tmp3,#PL011_PHY_BASE
-	orr \tmp3,\tmp3,\flags
-	str	\tmp3, [\tmp1, \tmp2, lsl #3] /*set pte node*/
-	.endm
-
 
 /*
  * Macro to create a table entry to the next page.
@@ -265,6 +215,7 @@ ENDPROC(preserve_boot_args)
  */
 __create_page_tables:
 	mov	x28, lr
+
 	/*
 	 * Invalidate the idmap and swapper page tables to avoid potential
 	 * dirty cache lines being evicted.
@@ -350,9 +301,6 @@ __create_page_tables:
 	add	x6, x6, x5			// runtime __va(_end)
 	create_block_map x0, x7, x3, x5, x6
 
-	mov	x7, SWAPPER_MM_MMUFLAGS1
-	ldr x22,=PL011_VIRT_BASE
-    create_uart_page x0,x22, x3, x5, x6,x7
 	/*
 	 * Since the page tables have been populated with non-cacheable
 	 * accesses (MMU disabled), invalidate the idmap and swapper page
@@ -390,18 +338,6 @@ __primary_switched:
 	ldr_l	x4, kimage_vaddr		// Save the offset between
 	sub	x4, x4, x0			// the kernel virtual and
 	str_l	x4, kimage_voffset, x5		// physical mappings
-	
-	# 打印符号kimage_vaddr的值
-	PRINT("\nkimage_vaddr value=")
-	ldr_l x15,kimage_vaddr
-	bl putn_64
-	PRINT("\n")
-	# 打印符号kimage_vaddr的地址
-	PRINT("\n kimage_vaddr  vaddr=")
-	ldr x15,=kimage_vaddr
-	bl putn_64
-	PRINT("\n")
-	
 
 	// Clear BSS
 	adr_l	x0, __bss_start
@@ -812,75 +748,7 @@ __primary_switch:
 	bl	__relocate_kernel
 #endif
 #endif
-	ldr   x14,=PL011_VIRT_BASE
-	PRINT("\n use uart virt address\n")
 	ldr	x8, =__primary_switched
 	adrp	x0, __PHYS_OFFSET
 	br	x8
 ENDPROC(__primary_switch)
-
-# Add for uart debug in the head.S
-init_uart:
-	early_uart_init x14, 17
-	adr x15,1f
-	b     puts
-1:      .asciz "- UART enabled -\r\n"
-	.align 4
-
-/* Print early debug messages.
- * x15: Nul-terminated string to print.
- * x14: Early UART base address
- * Clobbers x15,x17 */
-puts:
-	early_uart_ready x14, 17
-	ldrb  w17, [x15], #1
-	cbz   w17, 1f
-	early_uart_transmit x14, w17
-	b     puts
-1:
-	ret
-ENDPROC(init_uart)
-
-/* Print a 32-bit number in hex.  Specific to the PL011 UART.
- * x15: Number to print.
- * x14: Early UART base address
- * Clobbers x15,x17,x22,x25 */
-putn:
-        adr   x17, hex
-        mov   x25, #8
-1:
-        early_uart_ready x14, 2
-        and   x22, x15, #0xf0000000    /* Mask off the top nybble */
-        lsr   x22, x22, #28
-        ldrb  w22, [x17, x22]           /* Convert to a char */
-        early_uart_transmit x14, w22
-        lsl   x15, x15, #4             /* Roll it through one nybble at a time */
-        subs  x25, x25, #1
-        b.ne  1b
-        ret
-hex:    .ascii "0123456789abcdef"
-        .align 2
-ENDPROC(putn)
-
-/* Print a 64-bit number in hex.  Specific to the PL011 UART.
- * x15: Number to print.
- * x14: Early UART base address
- * Clobbers x15,x17,x22,x25 */
-putn_64:
-        adr   x17, hex_64
-        mov   x25, #16
-1:
-        early_uart_ready x14, 26
-        and   x22, x15, #0xf000000000000000    /* Mask off the top nybble */
-        lsr   x22, x22, #60
-		ldrb  w22, [x17, x22]           /* Convert to a char */
-		early_uart_transmit x14, w22
-        lsl   x15, x15, #4             /* Roll it through one nybble at a time */
-        subs  x25, x25, #1
-        b.ne  1b
-        ret
-hex_64:    .ascii "0123456789abcdef"
-        .align 2
-ENDPROC(putn_64)
-
-# Add for uart debug in the head.S

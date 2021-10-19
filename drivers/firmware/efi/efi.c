@@ -731,6 +731,7 @@ int __init efi_get_fdt_params(struct efi_fdt_params *params)
 	int ret;
 
 	pr_info("Getting EFI parameters from FDT:\n");
+	pr_info("kimage_vaddr=%lx\n",kimage_vaddr);
 
 	info.found = 0;
 	info.params = params;
