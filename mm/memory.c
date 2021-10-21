@@ -1760,6 +1760,14 @@ out:
  * under mm->mmap_sem write-lock, so it can change vma->vm_flags.
  * Caller must set VM_MIXEDMAP on vma if it wants to call this
  * function from other places, for example from page-fault handler.
+ * 1. 通常vm_insert_page在mm->mmap_sem write-lock下，在f_op->mmap中调用，
+ *    所以他可以改变vma->vm_flags的属性.
+ * 2. 如果不在f_op->mmap中调用，需要设置为VM_MIXEDMAP，然后在page-fault的handler
+ *    处理.
+ *  函数功能:
+ *  1. 从vma中找出mm，然后找到这个进程的pgd，然后根据addr，然后分配pud,pmd,pte，
+ *      并建立映射关系，然后把pte指向page的物理地址。
+ * 
  */
 int vm_insert_page(struct vm_area_struct *vma, unsigned long addr,
 			struct page *page)
