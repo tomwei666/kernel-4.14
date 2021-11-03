@@ -1339,7 +1339,6 @@ unsigned long do_mmap(struct file *file, unsigned long addr,
 	int pkey = 0;
 
 	*populate = 0;
-	printk(KERN_ERR "tom F=%s L=%d flags=%llx\n",__func__,__LINE__,flags);
 
 	if (!len)
 		return -EINVAL;
