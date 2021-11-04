@@ -20,7 +20,10 @@
  *   Usually the next entry will be @sg@ + 1, but if this sg element is part
  *   of a chained scatterlist, it could jump to the start of a new
  *   scatterlist array.
- *
+ *  功能：sg= sg+1；然后判断sg是否是chain,如果是chain，则指向chain的scatterlist.
+ *  问题:如果一个sg_table: scatterlist[0]--data,scatterlist[1]--chain，scatterlist[2]--data
+ *  轮询到scatterlist[1]，跳入到新的scatterlist，再怎么跳回到原来的scatterlist，轮询到scatterlist[2].
+ *  
  **/
 struct scatterlist *sg_next(struct scatterlist *sg)
 {

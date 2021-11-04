@@ -82,7 +82,7 @@ struct sg_table {
  **/
 static inline void sg_assign_page(struct scatterlist *sg, struct page *page)
 {
-	unsigned long page_link = sg->page_link & 0x3;
+	unsigned long page_link = sg->page_link & 0x3; /*保存sg原有的属性*/
 
 	/*
 	 * In order for the low bit stealing approach to work, pages
@@ -94,6 +94,7 @@ static inline void sg_assign_page(struct scatterlist *sg, struct page *page)
 	BUG_ON(sg_is_chain(sg));
 #endif
 	sg->page_link = page_link | (unsigned long) page;
+	/*sg->page_link指向page*/
 }
 
 /**
@@ -108,7 +109,8 @@ static inline void sg_assign_page(struct scatterlist *sg, struct page *page)
  *   the page directly. We encode sg table information in the lower bits
  *   of the page pointer. See sg_page() for looking up the page belonging
  *   to an sg entry.
- *
+ * 功能：将page中指定offset，指定长度的内存赋给指定的scatterlist(设置page_link、
+ *       offset、len字段)
  **/
 static inline void sg_set_page(struct scatterlist *sg, struct page *page,
 			       unsigned int len, unsigned int offset)
@@ -132,7 +134,9 @@ static inline struct page *sg_page(struct scatterlist *sg)
  * @sg:		 SG entry
  * @buf:	 Data
  * @buflen:	 Data length
- *
+ * 功能:
+ * 将指定长度的buffer赋给scatterlist(从虚拟地址中获得page指针、buffer在page中的
+ * offset之后，再调用sg_set_page)
  **/
 static inline void sg_set_buf(struct scatterlist *sg, const void *buf,
 			      unsigned int buflen)
@@ -157,7 +161,7 @@ static inline void sg_set_buf(struct scatterlist *sg, const void *buf,
  *
  * Description:
  *   Links @prv@ and @sgl@ together, to form a longer scatterlist.
- *
+ *  把scatterlist->page_link指向新的scatterlist，bit[1]=0 bit[0]=1
  **/
 static inline void sg_chain(struct scatterlist *prv, unsigned int prv_nents,
 			    struct scatterlist *sgl)
@@ -220,7 +224,7 @@ static inline void sg_unmark_end(struct scatterlist *sg)
  *   This calls page_to_phys() on the page in this sg entry, and adds the
  *   sg offset. The caller must know that it is legal to call page_to_phys()
  *   on the sg page.
- *
+ *   返回scatterlist绑定buffer的物理地址.
  **/
 static inline dma_addr_t sg_phys(struct scatterlist *sg)
 {
@@ -235,6 +239,7 @@ static inline dma_addr_t sg_phys(struct scatterlist *sg)
  *   This calls page_address() on the page in this sg entry, and adds the
  *   sg offset. The caller must know that the sg page has a valid virtual
  *   mapping.
+ *   返回scatterlist绑定buffer的虚拟地址.
  *
  **/
 static inline void *sg_virt(struct scatterlist *sg)

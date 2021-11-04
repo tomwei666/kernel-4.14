@@ -385,6 +385,11 @@ static inline int is_dma_buf_file(struct file *file)
  *
  * For most cases the easiest way to create @exp_info is through the
  * %DEFINE_DMA_BUF_EXPORT_INFO macro.
+ * 功能：通过exp_info,构造一个dma_buf，并返回dma_buf.
+ * 1. 构造一个匿名file，dma_buf->file=file
+ * 2. dmabuf->ops = exp_info->ops,构造dmabuf的函数集.
+ * 3.  dma->buf=exp_info->addr, dma内存的地址.
+ * 
  */
 struct dma_buf *dma_buf_export(const struct dma_buf_export_info *exp_info)
 {
@@ -548,6 +553,14 @@ EXPORT_SYMBOL_GPL(dma_buf_put);
  * Note that this can fail if the backing storage of @dmabuf is in a place not
  * accessible to @dev, and cannot be moved to a more suitable place. This is
  * indicated with the error code -EBUSY.
+ * 功能:
+ * 1. 分配一个attach 
+ * 2. attach->dev=dev attach->dmabuf = dmabuf
+ *    相当于attache连接了device和dmabuff.
+ * 3. dmabuf->ops->attach(dmabuf, dev, attach),执行exporter的fops中的attach.
+ * 4. 把attach挂在dmabuf->attachments上.
+ * 说明一个dmabuf->attachments可以有很多attach.
+ * 5. 返回attach.
  */
 struct dma_buf_attachment *dma_buf_attach(struct dma_buf *dmabuf,
 					  struct device *dev)
