@@ -549,14 +549,20 @@ static bool arch_timer_this_cpu_has_cntvct_wa(void)
 #define arch_timer_this_cpu_has_cntvct_wa()		({false;})
 #endif /* CONFIG_ARM_ARCH_TIMER_OOL_WORKAROUND */
 
+//CNTP_CTL : The control register for the physical timer.
+//BIT[2]:The status of the timer interrupt: 1:Interrupt asserted. 0:Interrupt not asserted.
+//BIT[1]:Timer interrupt mask bit: 1:Timer interrupt is masked. 0:Timer interrupt is not masked.
+//BIT[0]:1: Timer enabled. 1: Timer disabled.
 static __always_inline irqreturn_t timer_handler(const int access,
 					struct clock_event_device *evt)
 {
 	unsigned long ctrl;
 
 	ctrl = arch_timer_reg_read(access, ARCH_TIMER_REG_CTRL, evt);
+	//如果中断已经asserted，就是asserted到proccessor.
 	if (ctrl & ARCH_TIMER_CTRL_IT_STAT) {
 		ctrl |= ARCH_TIMER_CTRL_IT_MASK;
+		//屏蔽定时器的中断
 		arch_timer_reg_write(access, ARCH_TIMER_REG_CTRL, ctrl, evt);
 		evt->event_handler(evt);
 		return IRQ_HANDLED;
