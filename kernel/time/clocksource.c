@@ -548,6 +548,8 @@ u64 clocks_calc_max_nsecs(u32 mult, u32 shift, u32 maxadj, u64 mask, u64 *max_cy
 	 * Calculate the maximum number of cycles that we can pass to the
 	 * cyc2ns() function without overflowing a 64-bit result.
 	 */
+	//1. max_cycles最大长整型的数值，除以mult和maxadj(11%
+	//mult),得到最大counter的数值
 	max_cycles = ULLONG_MAX;
 	do_div(max_cycles, mult+maxadj);
 
@@ -557,7 +559,9 @@ u64 clocks_calc_max_nsecs(u32 mult, u32 shift, u32 maxadj, u64 mask, u64 *max_cy
 	 * Note: Here we subtract the maxadj to make sure we don't sleep for
 	 * too long if there's a large negative adjustment.
 	 */
+	//2. 取max_cycles和mask的最小值。
 	max_cycles = min(max_cycles, mask);
+	//转换成cycles
 	max_nsecs = clocksource_cyc2ns(max_cycles, mult - maxadj, shift);
 
 	/* return the max_cycles value as well if requested */
@@ -565,6 +569,7 @@ u64 clocks_calc_max_nsecs(u32 mult, u32 shift, u32 maxadj, u64 mask, u64 *max_cy
 		*max_cyc = max_cycles;
 
 	/* Return 50% of the actual maximum, so we can detect bad values */
+	//3. max_nsecs除以2
 	max_nsecs >>= 1;
 
 	return max_nsecs;
