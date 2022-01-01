@@ -328,6 +328,8 @@ static inline u64 timekeeping_delta_to_ns(struct tk_read_base *tkr, u64 delta)
 {
 	u64 nsec;
 
+	//xtime_nsec保存纳秒左移shift的数值,这样会提高精度,原理如下
+	//(A+B)/C精度比A/C+B/C精度高,7/2+7/2=6 (7+7)/2=7 7>6
 	nsec = delta * tkr->mult + tkr->xtime_nsec;
 	nsec >>= tkr->shift;
 
