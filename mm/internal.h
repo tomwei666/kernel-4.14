@@ -142,6 +142,13 @@ struct alloc_context {
  *
  * Assumption: *_mem_map is contiguous at least up to MAX_ORDER
  */
+/*
+ * 上面介绍了^这个运算符: 1)  N=0 N^0=1 2) N=1 N^1=0
+ * 举例子:
+ *  1) page_pfn=40, order=5，则page_buddy=40^32=8
+ *  2) page_pfn=8, order=6，则page_buddy=8^64=72
+ *  这样完成了想前合并一个buddy，再向后合并一个更大的buddy。
+ */
 static inline unsigned long
 __find_buddy_pfn(unsigned long page_pfn, unsigned int order)
 {
