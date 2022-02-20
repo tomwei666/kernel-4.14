@@ -795,6 +795,45 @@ static inline int page_is_buddy(struct page *page, struct page *buddy,
  *
  * -- nyc
  */
+/*
+ * 前提条件:
+ * page_pfn=32   order=3
+ * page_pfn=48   order=4
+ * page_pfn=0    order=0 不是buddy系统。
+ * 传入:
+ * page_pfn=40 order=3
+ * 结果：
+ *  1) page_pfn=32 order=0
+ *  1) page_pfn=48 order=0
+ *  2) page_pfn=32 order=5 
+ *  操作如下：
+ *  1）先找到page_pfn=40的buddy页，page_pfn^8=32.
+		buddy_pfn = __find_buddy_pfn(pfn, order);
+		buddy = page + (buddy_pfn - pfn);
+ *  2) 判断page_pfn=32是否满足和page_pfn=40合并.
+ *			page_is_buddy(page, buddy, order)
+ *  3) 满足合并，首先把page_pfn=32中关于buddy标志，buddy order清除掉.
+ *		if (page_is_guard(buddy)) {
+ *			clear_page_guard(zone, buddy, order, migratetype);
+ *		} else {
+ *			list_del(&buddy->lru);
+ *			zone->free_area[order].nr_free--;
+ *			rmv_page_order(buddy);
+ *		}
+ *
+ *  4) buddy_pfn和page_pfn找到小的pfn:combined_pfn = buddy_pfn & pfn;
+ *     较小的page：  page = page + (combined_pfn - pfn);
+ *     order增加1: order++
+ *  5) 开始下一次循环，直到找不到满足合并的page页，然后跳转到done_merging.
+		if (!page_is_buddy(page, buddy, order))
+			goto done_merging;
+ *  6) done_merging主要做了两件事情：
+ *     page->private = order: set_page_order(page, order);
+ *     page->lru加入到链表中:list_add(&page->lru, &zone->free_area[order].free_list[migratetype]);
+ *    注意:
+ *    1)找小的page:combined_pfn = buddy_pfn & pfn;  40&32=32 32&48=32
+ *    2)page向前或者向后: page ^ 1<< order: 40^8=32 32^16=32
+ */
 
 static inline void __free_one_page(struct page *page,
 		unsigned long pfn,
@@ -825,12 +864,14 @@ continue_merging:
 
 		if (!pfn_valid_within(buddy_pfn))
 			goto done_merging;
+		/*如注释中操作5*/
 		if (!page_is_buddy(page, buddy, order))
 			goto done_merging;
 		/*
 		 * Our buddy is free or it is CONFIG_DEBUG_PAGEALLOC guard page,
 		 * merge with it and move up one order.
 		 */
+		/*如注释中操作3*/
 		if (page_is_guard(buddy)) {
 			clear_page_guard(zone, buddy, order, migratetype);
 		} else {
@@ -838,6 +879,8 @@ continue_merging:
 			zone->free_area[order].nr_free--;
 			rmv_page_order(buddy);
 		}
+		/*如注释中操作4,从pfn和buddy_pfn找到小的，下一次循环，主要buddy的order都是对小的page赋值*/
+		if (page_is_guard(buddy)) {
 		combined_pfn = buddy_pfn & pfn;
 		page = page + (combined_pfn - pfn);
 		pfn = combined_pfn;
@@ -869,6 +912,7 @@ continue_merging:
 	}
 
 done_merging:
+	/*如注释中操作6*/
 	set_page_order(page, order);
 
 	/*
@@ -893,6 +937,7 @@ done_merging:
 		}
 	}
 
+	/*如注释中操作6*/
 	list_add(&page->lru, &zone->free_area[order].free_list[migratetype]);
 out:
 	zone->free_area[order].nr_free++;
