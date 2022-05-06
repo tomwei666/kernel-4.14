@@ -215,6 +215,7 @@ static int __vb2_buf_mem_alloc(struct vb2_buffer *vb)
 		}
 
 		/* Associate allocator private data with this plane */
+		//分配的图像存储放在vb->planes[plane].mem_priv中.
 		vb->planes[plane].mem_priv = mem_priv;
 	}
 
@@ -298,7 +299,10 @@ static void __setup_offsets(struct vb2_buffer *vb)
 	struct vb2_queue *q = vb->vb2_queue;
 	unsigned int plane;
 	unsigned long off = 0;
-
+	// 如果是vb2_queue的第一个(vb->index=0)vb_buffer,offset=0.
+	// 如果不是vb2_queue的第一个(vb->index=0)vb_buffer,则是下面逻辑:
+	// 找出前面一个vb2_buffer中，最后一个vb2_plane，然后根据plane中offset+length,
+	// 也就是下一个vb2_buffer第一个vb2_plane的offset的值。
 	if (vb->index) {
 		struct vb2_buffer *prev = q->bufs[vb->index - 1];
 		struct vb2_plane *p = &prev->planes[prev->num_planes - 1];
@@ -307,6 +311,7 @@ static void __setup_offsets(struct vb2_buffer *vb)
 	}
 
 	for (plane = 0; plane < vb->num_planes; ++plane) {
+	     //依次为传递进来的vb2_buffer中vb2_plane赋值
 		vb->planes[plane].m.offset = off;
 
 		dprintk(3, "buffer %d, plane %d offset 0x%08lx\n",
@@ -334,6 +339,7 @@ static int __vb2_queue_alloc(struct vb2_queue *q, enum vb2_memory memory,
 
 	for (buffer = 0; buffer < num_buffers; ++buffer) {
 		/* Allocate videobuf buffer structures */
+	    // 1. 分配videobuf结构体
 		vb = kzalloc(q->buf_struct_size, GFP_KERNEL);
 		if (!vb) {
 			dprintk(1, "memory alloc for buffer struct failed\n");
@@ -353,6 +359,7 @@ static int __vb2_queue_alloc(struct vb2_queue *q, enum vb2_memory memory,
 		q->bufs[vb->index] = vb;
 
 		/* Allocate video buffer memory for the MMAP type */
+		//2. 分配vide buffer memory
 		if (memory == VB2_MEMORY_MMAP) {
 			ret = __vb2_buf_mem_alloc(vb);
 			if (ret) {
@@ -1776,6 +1783,8 @@ EXPORT_SYMBOL_GPL(vb2_core_streamoff);
 /**
  * __find_plane_by_offset() - find plane associated with the given offset off
  */
+// 功能: 根据vb2_queue和offset,返回vb_buffer在vb2_queue中的index,以及
+// 这个offset对应的vb_plane在vb_buffer的index.
 static int __find_plane_by_offset(struct vb2_queue *q, unsigned long off,
 			unsigned int *_buffer, unsigned int *_plane)
 {
@@ -1787,6 +1796,9 @@ static int __find_plane_by_offset(struct vb2_queue *q, unsigned long off,
 	 * with an offset assigned to each plane. If a match is found,
 	 * return its buffer and plane numbers.
 	 */
+
+	//轮询这个vb2_queue的vb2_bufer，vb2_buffer中每个plane，直到offset满足
+	//条件，返回buffer和plane.
 	for (buffer = 0; buffer < q->num_buffers; ++buffer) {
 		vb = q->bufs[buffer];
 
@@ -1875,6 +1887,8 @@ EXPORT_SYMBOL_GPL(vb2_core_expbuf);
 
 int vb2_mmap(struct vb2_queue *q, struct vm_area_struct *vma)
 {
+        //vma->vm_pgoff是用户空间传递进的offset，应该是按page对齐的，然后被向右移了PAGE_SHIFT
+	//恢复用户空间的offset，则需要vma->vm_pgoff左移PAGE_SHIFT.
 	unsigned long off = vma->vm_pgoff << PAGE_SHIFT;
 	struct vb2_buffer *vb;
 	unsigned int buffer = 0, plane = 0;
@@ -1931,6 +1945,8 @@ int vb2_mmap(struct vb2_queue *q, struct vm_area_struct *vma)
 	}
 
 	mutex_lock(&q->mmap_lock);
+	//上面通过用户空间的offset，找到了vb_plane,这样就可以通过vb->planes[plane].mem_priv
+	//指向显存的地址.
 	ret = call_memop(vb, mmap, vb->planes[plane].mem_priv, vma);
 	mutex_unlock(&q->mmap_lock);
 	if (ret)
