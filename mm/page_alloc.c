@@ -880,7 +880,6 @@ continue_merging:
 			rmv_page_order(buddy);
 		}
 		/*如注释中操作4,从pfn和buddy_pfn找到小的，下一次循环，主要buddy的order都是对小的page赋值*/
-		if (page_is_guard(buddy)) {
 		combined_pfn = buddy_pfn & pfn;
 		page = page + (combined_pfn - pfn);
 		pfn = combined_pfn;
